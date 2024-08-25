@@ -51,6 +51,7 @@ defineFunction(InitSettings, void)
 	INTERNAL_DEMAND_FACTOR = 0.02; //how many workers should be employed in offices to serve 1 citizen (setting it to 0.0 or less will disable the feature)
 	GRACE_CITIZENS = 7500; //the demand for services is decreased for your first GRACE_CITIZENS non-dormant citizens
 	GRACE_FACTOR = 0.5; //the decrease in demand for your first GRACE_CITIZENS non-dormant citizens
+	SUPPLY_CACHE_DAYS = 3; //The number of days that the supply will cache. This smooths out the supply to account for minor disruptions when workers are commuting to their office.
 	NUMBER_OF_PRICE_DECREASES = 0; //how many times have you used cheats to divide prices by 100, every time you use it in your save you should increase it by 1 and restart the script, otherwise the cost of services will not be divided by 100
 	
 	CAN_IMPORT_SERVICES = 1; //1 or more allows you to import services from abroad if you need them, with 0 or less you have to generate the necessary services yourself
