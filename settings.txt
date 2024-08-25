@@ -21,6 +21,7 @@ defineVariable(int, INFORMATION_SHOWN);
 defineVariable(float, NO_POWER_FACTOR);
 defineVariable(float, NO_WATER_FACTOR);
 defineVariable(int, NUMBER_OF_PRICE_DECREASES);
+defineVariable(int, SUPPLY_CACHE_DAYS);
 defineVariable(float, VEHICLE_DIFFICULTY);
 defineVariable(float, VEHICLE_IDLE_COST);
 defineVariable(float, BASE_COST_ROAD);
