@@ -96,7 +96,7 @@ defineFunction(CalculateVehicleDemand, float)
             {
                 vehicle_cost = BASE_COST_PERSONAL;
             }
-            elseif (1>0)
+            else()
             {
             // Finally, if no skill set by capacity
             vehicle_cost = BASE_COST_ROAD + vehicle_cost * COST_ROAD_FACTOR;
@@ -416,7 +416,7 @@ defineFunction(Money, void, float:rub, float:usd)
                     difference = supply_cache;
                     supply_cache = 0;
                 }
-                elseif(1>0)
+                else()
                 {
                     difference = 0;
                 }
@@ -487,7 +487,7 @@ defineFunction(Money, void, float:rub, float:usd)
 								    {
 								        strcat(text, " None. Using the cache.");
 								    }
-									elseif (1>0)
+									else()
 									{
 									    strcat(text, "Surplus of ");
 									    strcat(text, difference);
