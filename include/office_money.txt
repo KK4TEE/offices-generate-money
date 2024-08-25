@@ -16,6 +16,9 @@ defineVariable(int, population);
 defineVariable(float, services);
 defineVariable(int, services_int);
 defineVariable(int, demand);
+defineVariable(int, demand_total);
+defineVariable(int, demand_total_civics);
+defineVariable(int, demand_total_vehicles);
 defineVariable(float, demand_vehicles);
 defineVariable(float, vehicle_cost);
 defineVariable(int, supply);
@@ -40,7 +43,7 @@ defineVariable(int, window_id);
 defineVariable(int, window_exists);
 defineVariable(Window, window);
 defineVariable(int, clicked_object_id);
-defineArray(char[300], text);
+defineArray(char[400], text);
 defineVariable(char, NEWLINE);
 
 // Worker for which we are computing the fee
@@ -128,7 +131,7 @@ defineFunction(CalculateVehicleDemand, float)
 	return(demand_vehicles);
 }
 
-defineFunction(CalculateDemand, int)
+defineFunction(CalculateCivicDemand, int)
 {
  	population = 0;
 	for (i=0, i<n, i=i+1)
@@ -387,9 +390,18 @@ defineFunction(Money, void, float:rub, float:usd)
 				Building_GetNumberOfBuildings(n);
 				Money_GetRUB(money_rub);
 				Money_GetUSD(money_usd);
-				demand = CalculateDemand();
+
+				demand_total_vehicles = 0;
+				if (VEHICLE_DIFFICULTY > 0.0)
+                {
+                    demand_total_vehicles = 0 + CalculateVehicleDemand();
+                }
+
+				demand_total_civics = CalculateCivicDemand();
+                demand_total = demand_total_civics + demand_total_vehicles;
+
 				supply = CalculateSupply();
-				difference = supply - demand;
+				difference = supply - demand_total;
 
 			    if (supply * SUPPLY_CACHE_DAYS > supply_cache_capacity)
 			    {
@@ -424,7 +436,7 @@ defineFunction(Money, void, float:rub, float:usd)
 				}
 				elseif(rub > 0.0)
 				{
-					MakePeopleAngry(rub * ModuleFloat(difference * 1.0 / demand));
+					MakePeopleAngry(rub * ModuleFloat(difference * 1.0 / demand_total));
 				}
 				if (-1.0 * money_usd_add < MaxInt(money_usd, 0) & CAN_IMPORT_SERVICES > 0)
 				{
@@ -432,7 +444,7 @@ defineFunction(Money, void, float:rub, float:usd)
 				}
 				elseif(usd > 0.0)
 				{
-					MakePeopleAngry(usd * ModuleFloat(difference * 1.0 / demand));
+					MakePeopleAngry(usd * ModuleFloat(difference * 1.0 / demand_total));
 				}
 				rub_sum2 = rub_sum2 + money_rub_add;
 				usd_sum2 = usd_sum2 + money_usd_add;
@@ -459,23 +471,60 @@ defineFunction(Money, void, float:rub, float:usd)
 								if(building.nType ? BUILDINGTYPE_CITYHALL & building.fPercFinished > 0.9999 & ! (building.nSubType ? BUILDINGSUBTYPE_ROAD) & !window_exists)
 								{
 									strcpy(text, "");
-									
-									strcat(text, "Services produced: ");
-									strcat(text, supply);
-									strcat(text, NEWLINE);
-									
-									strcat(text, "Services needed: ");
-									strcat(text, demand);
-									strcat(text, NEWLINE);
-
-									strcat(text, "Service balance: ");
-									strcat(text, difference);
-									strcat(text, NEWLINE);
 
 									strcat(text, "Supply Cache: ");
 									strcat(text, supply_cache);
 									strcat(text, " / ");
 									strcat(text, supply_cache_capacity);
+									strcat(text, NEWLINE);
+
+									strcat(text, "Service trade: ");
+									if (difference < 0 & CAN_IMPORT_SERVICES > 0)
+									{
+									    strcat(text, "Deficit of ");
+									    difference = -difference;
+									    strcat(text, difference);
+									    difference = -difference;
+									}
+									elseif(difference ? 0)
+								    {
+								        strcat(text, " None. Using the cache.");
+								    }
+									elseif (1>0)
+									{
+									    strcat(text, "Surplus of ");
+									    strcat(text, difference);
+									}
+									strcat(text, NEWLINE);
+
+									strcat(text, NEWLINE);
+									strcat(text, "=== Service Production ===");
+									strcat(text, NEWLINE);
+									
+									strcat(text, "Services produced: ");
+									strcat(text, supply);
+									strcat(text, NEWLINE);
+
+
+									strcat(text, NEWLINE);
+									strcat(text, "=== Service Consumption ===");
+									strcat(text, NEWLINE);
+
+									strcat(text, "Total Services needed: ");
+									strcat(text, demand_total);
+									strcat(text, NEWLINE);
+
+									strcat(text, "Civic Services needed: ");
+									strcat(text, demand_total_civics);
+									strcat(text, NEWLINE);
+
+									strcat(text, "Vehicle Services needed: ");
+									strcat(text, demand_total_vehicles);
+									strcat(text, NEWLINE);
+
+
+									strcat(text, NEWLINE);
+									strcat(text, "=== Service Market ===");
 									strcat(text, NEWLINE);
 									
 									strcat(text, "Services price (rubles): ");
@@ -486,11 +535,11 @@ defineFunction(Money, void, float:rub, float:usd)
 									strcat(text, current_price_usd);
 									strcat(text, NEWLINE);
 									
-									strcat(text, "Last day services balance (rubles): ");
+									strcat(text, "Last day balance (rubles): ");
 									strcat(text, rub_sum);
 									strcat(text, NEWLINE);
 									
-									strcat(text, "Last day services balance (dollars): ");
+									strcat(text, "Last day balance (dollars): ");
 									strcat(text, usd_sum);
 									
 									Scenario_WindowWithImageLeft("Services overview", text, "services_icon.png", 2);
@@ -505,7 +554,7 @@ defineFunction(Money, void, float:rub, float:usd)
 					{
 						//show the internal supply and demand for services
 						Objectives_CreateNewString("services", "Services");
-						Objective_AddRequirement("services", demand * 1.0, "services_icon.png");
+						Objective_AddRequirement("services", demand_total * 1.0, "services_icon.png");
 						Objective_UpdateRequirement("services", 0, supply * 1.0);
 					}
 					if(INFORMATION_SHOWN > 1 & CAN_IMPORT_SERVICES > 0)
