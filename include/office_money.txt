@@ -152,11 +152,6 @@ defineFunction(CalculateCivicDemand, int)
 		demand = INTERNAL_DEMAND_FACTOR * (GRACE_CITIZENS * GRACE_FACTOR + population - GRACE_CITIZENS);
 	}
 
-	if (VEHICLE_DIFFICULTY > 0.0)
-	{
-	    demand = demand + CalculateVehicleDemand();
-	}
-
 	return(demand);
 }
 
