@@ -2,8 +2,9 @@ defineVariable(int, n);
 defineVariable(int, m);
 defineVariable(int, i);
 defineVariable(int, j);
-defineVariable(int, k);
 defineVariable(int, l);
+defineVariable(int, current_day);
+defineVariable(int, processing_day);
 defineVariable(Building, building);
 defineVariable(Building, building2);
 defineVariable(Vehicle, vehicle);
@@ -227,15 +228,17 @@ defineFunction(Money, void, float:rub, float:usd)
 		game.GetCurrentGameSettigns();
 		rub_sum2 = 0;
 		usd_sum2 = 0;
-		k = 0;
 		clicked_object_id = -1;
-		while(k < 20)
+		Date_GetCurrentDate_D365Y(current_day, year);
+		Date_GetCurrentDate_D365Y(processing_day, year);
+		while(current_day ? processing_day)
 		{
+			Date_GetCurrentDate_D365Y(current_day, year);
 			Script_GetGameTime(game_time);
-			if(game_time > game_time_prev)
+			if(game_time - game_time_prev > 2.5)
 			{
-				time_factor = (game_time - game_time_prev) / 25.0;
 				Script_EnterCriticalSection();
+				time_factor = (game_time - game_time_prev) / 60.0;
 				Building_GetNumberOfBuildings(n);
 				Money_GetRUB(money_rub);
 				Money_GetUSD(money_usd);
@@ -345,10 +348,8 @@ defineFunction(Money, void, float:rub, float:usd)
 					Objective_UpdateRequirement("services_balance", 1, usd_sum * 1.0);
 				}
 				game_time_prev = game_time;
-				k = k+1;
 				Script_LeaveCriticalSection();
 			}
-			Script_Sleep(2.5);
 		}
 		rub_sum = rub_sum2;
 		usd_sum = usd_sum2;
