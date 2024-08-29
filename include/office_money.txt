@@ -25,6 +25,8 @@ defineVariable(float, supply);
 defineVariable(float, supply_cache);
 defineVariable(float, supply_cache_capacity);
 defineVariable(float, difference);
+defineVariable(int, market_multiplier_rub);
+defineVariable(int, market_multiplier_usd);
 defineVariable(int, money_rub);
 defineVariable(int, money_usd);
 defineVariable(int, money_rub_add);
@@ -38,6 +40,7 @@ defineVariable(int, rub_sum2);
 defineVariable(int, usd_sum2);
 defineVariable(float, game_time);
 defineVariable(float, game_time_prev);
+defineVariable(float, day_started_time);
 defineVariable(float, time_factor);
 defineVariable(int, window_id);
 defineVariable(int, window_exists);
@@ -301,6 +304,230 @@ defineFunction(MakePeopleAngry, void, float:unpaid_services)
 	}
 	returnVoid();
 }
+defineFunction(UpdateInformationDisplay, void)
+{
+    if(INFORMATION_SHOWN > 0)
+    {
+        if(INTERNAL_DEMAND_FACTOR > 0.0 & INFORMATION_SHOWN > 1)
+        {
+            //show the internal supply and demand for services
+            Objectives_CreateNewString("services", "Services");
+            Objective_AddRequirement("services", demand_total * 1.0, "services_icon.png");
+            Objective_UpdateRequirement("services", 0, supply * 1.0);
+        }
+        if(INFORMATION_SHOWN > 1 & CAN_IMPORT_SERVICES > 0)
+        {
+            //show the service market price
+            Objectives_CreateNewString("service_price", "Current service price");
+            Objective_AddRequirement("service_price", 0.0, "editor/currency_ruble.png");
+            Objective_UpdateRequirement("service_price", 0, current_price_rub);
+            Objective_AddRequirement("service_price", 0.0, "editor/currency_dollar.png");
+            Objective_UpdateRequirement("service_price", 1, current_price_usd);
+        }
+        //show the services balance last day
+        Objectives_CreateNewString("services_balance", "Daily services balance");
+        Objective_AddRequirement("services_balance", 0.0, "editor/currency_ruble.png");
+        Objective_UpdateRequirement("services_balance", 0, rub_sum * 1.0);
+        Objective_AddRequirement("services_balance", 0.0, "editor/currency_dollar.png");
+        Objective_UpdateRequirement("services_balance", 1, usd_sum * 1.0);
+    }
+	returnVoid();
+}
+defineFunction(HandleStatisticsWindow,void)
+{
+    Objective_Remove("services");
+    Objective_Remove("service_price");
+    Objective_Remove("services_balance");
+    Window_GetLastWindow(window_id);
+    if(window_id ? -1)
+    {
+        clicked_object_id = -1;
+    }
+    else()
+    {
+        window.GetDataByIndex(window_id);
+        if (window.nValidRead)
+        {
+            if (window.nReferenceObjectType ? SOVIET_OBJECT_BUILDING & !(clicked_object_id ? window.nRefObjectIndex))
+            {
+                clicked_object_id = window.nRefObjectIndex;
+                if(window.nReferenceObjectType ? SOVIET_OBJECT_BUILDING)
+                {
+                    building.GetDataByIndex(clicked_object_id);
+                    Scenario_WindowExists(window_exists);
+                    if(building.nType ? BUILDINGTYPE_CITYHALL & building.fPercFinished > 0.9999 & ! (building.nSubType ? BUILDINGSUBTYPE_ROAD) & !window_exists)
+                    {
+                        strcpy(text, "");
+
+                        strcat(text, "Supply Cache: ");
+                        strcat(text, supply_cache);
+                        strcat(text, " / ");
+                        strcat(text, supply_cache_capacity);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Time Factor: ");
+                        time_factor = time_factor * 1000.0;
+                        strcat(text, time_factor);
+                        strcat(text, NEWLINE);
+
+                        time_factor = game_time - game_time_prev;
+                        strcat(text, "Time Delta: ");
+                        time_factor = time_factor * 1000.0;
+                        strcat(text, time_factor);
+                        strcat(text, NEWLINE);
+
+                        time_factor = game_time - 0.0;
+                        strcat(text, "game_time: ");
+                        strcat(text, time_factor);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Service trade: ");
+                        if (difference < 0 & CAN_IMPORT_SERVICES > 0)
+                        {
+                            strcat(text, "Deficit of ");
+                            difference = -difference;
+                            strcat(text, difference);
+                            difference = -difference;
+                        }
+                        elseif(difference ? 0)
+                        {
+                            strcat(text, " None. Using the cache.");
+                        }
+                        else()
+                        {
+                            strcat(text, "Surplus of ");
+                            strcat(text, difference);
+                        }
+                        strcat(text, NEWLINE);
+
+                        strcat(text, NEWLINE);
+                        strcat(text, "=== Service Production ===");
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Services produced: ");
+                        strcat(text, supply);
+                        strcat(text, NEWLINE);
+
+
+                        strcat(text, NEWLINE);
+                        strcat(text, "=== Service Consumption ===");
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Total Services needed: ");
+                        strcat(text, demand_total);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Civic Services needed: ");
+                        strcat(text, demand_total_civics);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Vehicle Services needed: ");
+                        strcat(text, demand_total_vehicles);
+                        strcat(text, NEWLINE);
+
+
+                        strcat(text, NEWLINE);
+                        strcat(text, "=== Service Market ===");
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Services price (rubles): ");
+                        strcat(text, current_price_rub);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Services price (dollars): ");
+                        strcat(text, current_price_usd);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Last day balance (rubles): ");
+                        strcat(text, rub_sum);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Last day balance (dollars): ");
+                        strcat(text, usd_sum);
+                        strcat(text, NEWLINE);
+
+                        strcat(text, "Instant market spend (rubles): ");
+                        strcat(text, money_rub_add);
+                        strcat(text, NEWLINE);
+
+                        Scenario_WindowWithImageLeft("Services overview", text, "services_icon.png", 2);
+                    }
+                }
+            }
+        }
+    }
+    returnVoid();
+}
+defineFunction(CorrectForTimeDilation, void)
+{
+    // In-game time is scaled and reported differently than wall time
+    // At Normal game speed: 1 day = 60 real life seconds, 60 seconds from Script_GetGameTime(), 1.0x
+    // At Fast game speed:   1 day = 20 real life seconds, 40 seconds from Script_GetGameTime(), / 40/60
+    // At Num1 debug speed:  1 day = 03 real life seconds, 06 seconds from Script_GetGameTime(), / 6/60
+    // At Num2 debug speed:  1 day = 01 real life seconds, 03?seconds from Script_GetGameTime(), / 3/60
+    //
+    // This code assumes the player maintained constant speed throughout the day.
+    // Any time within 80% of the time will be counted as the slower speed.
+    // game_time
+    // day_started_time;
+
+    Script_EnterCriticalSection();
+    Script_GetGameTime(game_time); // Refresh game time upon entering the critical section
+    game_time = game_time - day_started_time; // The scaled time reported by the game engine
+    if (game_time > 60 * 0.8)
+    {
+        // Normal game speed
+        // No balance true-up required
+        time_factor = 1;
+    }
+    elseif(game_time > 20 * 0.8)
+    {
+        // Fast game speed
+        time_factor = 1 - 40.0/60.0;
+    }
+    elseif(game_time > 6 * 0.8)
+    {
+         // Num1 debug game speed
+        time_factor = 1 - 6.0/60.0;
+    }
+    else()
+    {
+        // Num2 debug game speed
+        time_factor = 1 - 3.0/60.0;
+    }
+
+    Script_LeaveCriticalSection();
+	returnVoid();
+}
+defineFunction(SendToMarket, void, float:ServicesToMarket)
+{
+    current_price_rub = ScaledRUB(Price(1, ServicesToMarket));
+    current_price_usd = ScaledUSD(Price(0, ServicesToMarket));
+    money_rub_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
+    money_usd_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
+    money_rub_add = money_rub_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
+    money_usd_add = money_usd_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
+    if (-1.0 * money_rub_add < MaxInt(money_rub, 0) & CAN_IMPORT_SERVICES > 0)
+    {
+        Money_AddRUB(money_rub_add);
+    }
+    elseif(market_multiplier_rub> 0.0)
+    {
+        MakePeopleAngry(market_multiplier_rub * ModuleFloat(ServicesToMarket * 1.0 / demand_total));
+    }
+    if (-1.0 * money_usd_add < MaxInt(money_usd, 0) & CAN_IMPORT_SERVICES > 0)
+    {
+        Money_AddUSD(money_usd_add);
+    }
+    elseif(market_multiplier_usd > 0.0)
+    {
+        MakePeopleAngry(market_multiplier_usd * ModuleFloat(ServicesToMarket * 1.0 / demand_total));
+    }
+    rub_sum2 = rub_sum2 + money_rub_add;
+    usd_sum2 = usd_sum2 + money_usd_add;
+
+	returnVoid();
+}
 defineFunction(Money, void, float:rub, float:usd)
 {
 	InitConstants();
@@ -319,6 +546,8 @@ defineFunction(Money, void, float:rub, float:usd)
 	year = START_YEAR;
 	rub_sum = 0;
 	usd_sum = 0;
+	market_multiplier_rub = rub;
+	market_multiplier_usd = usd;
 	Script_GetGameTime(game_time);
 	Script_GetGameTime(game_time_prev);
 	
@@ -355,14 +584,14 @@ defineFunction(Money, void, float:rub, float:usd)
 		clicked_object_id = -1;
 		Date_GetCurrentDate_D365Y(current_day, year);
 		Date_GetCurrentDate_D365Y(processing_day, year);
+		Script_GetGameTime(day_started_time);
 		while(current_day ? processing_day)
 		{
-		    Script_EnterCriticalSection();
-			Date_GetCurrentDate_D365Y(current_day, year);
+		    Date_GetCurrentDate_D365Y(current_day, year);
 			Script_GetGameTime(game_time);
 			if(game_time - game_time_prev > 2.5)
 			{
-				//Script_EnterCriticalSection();
+				Script_EnterCriticalSection();
 				time_factor = (game_time - game_time_prev) / 60.0;
 				Building_GetNumberOfBuildings(n);
 				Money_GetRUB(money_rub);
@@ -432,178 +661,24 @@ defineFunction(Money, void, float:rub, float:usd)
                     difference = difference - 1;
                 }
 
-				current_price_rub = ScaledRUB(Price(1, difference));
-				current_price_usd = ScaledUSD(Price(0, difference));
-				money_rub_add = MaxFloat(difference, 0.0) * rub * current_price_rub;
-				money_usd_add = MaxFloat(difference, 0.0) * usd * current_price_usd;
-				money_rub_add = money_rub_add - MaxFloat(-difference, 0.0) * rub * current_price_rub;
-				money_usd_add = money_usd_add - MaxFloat(-difference, 0.0) * usd * current_price_usd;
-				if (-1.0 * money_rub_add < MaxInt(money_rub, 0) & CAN_IMPORT_SERVICES > 0)
-				{
-					Money_AddRUB(money_rub_add);
-				}
-				elseif(rub > 0.0)
-				{
-					MakePeopleAngry(rub * ModuleFloat(difference * 1.0 / demand_total));
-				}
-				if (-1.0 * money_usd_add < MaxInt(money_usd, 0) & CAN_IMPORT_SERVICES > 0)
-				{
-					Money_AddUSD(money_usd_add);
-				}
-				elseif(usd > 0.0)
-				{
-					MakePeopleAngry(usd * ModuleFloat(difference * 1.0 / demand_total));
-				}
-				rub_sum2 = rub_sum2 + money_rub_add;
-				usd_sum2 = usd_sum2 + money_usd_add;
+				SendToMarket(difference);
 
 				// User Interface
 				difference = supply - demand_total; // Rescale for full day
+				HandleStatisticsWindow();
+				UpdateInformationDisplay();
 
-				Objective_Remove("services");
-				Objective_Remove("service_price");
-				Objective_Remove("services_balance");
-				Window_GetLastWindow(window_id);
-				if(window_id ? -1)
-				{
-					clicked_object_id = -1;
-				}
-				else()
-				{
-					window.GetDataByIndex(window_id);
-					if (window.nValidRead)
-					{
-						if (window.nReferenceObjectType ? SOVIET_OBJECT_BUILDING & !(clicked_object_id ? window.nRefObjectIndex))
-						{
-							clicked_object_id = window.nRefObjectIndex;
-							if(window.nReferenceObjectType ? SOVIET_OBJECT_BUILDING)
-							{
-								building.GetDataByIndex(clicked_object_id);
-								Scenario_WindowExists(window_exists);
-								if(building.nType ? BUILDINGTYPE_CITYHALL & building.fPercFinished > 0.9999 & ! (building.nSubType ? BUILDINGSUBTYPE_ROAD) & !window_exists)
-								{
-									strcpy(text, "");
-
-									strcat(text, "Supply Cache: ");
-									strcat(text, supply_cache);
-									strcat(text, " / ");
-									strcat(text, supply_cache_capacity);
-									strcat(text, NEWLINE);
-
-									strcat(text, "Time Factor: ");
-									time_factor = time_factor * 1000.0;
-									strcat(text, time_factor);
-									strcat(text, NEWLINE);
-
-									strcat(text, "Service trade: ");
-									if (difference < 0 & CAN_IMPORT_SERVICES > 0)
-									{
-									    strcat(text, "Deficit of ");
-									    difference = -difference;
-									    strcat(text, difference);
-									    difference = -difference;
-									}
-									elseif(difference ? 0)
-								    {
-								        strcat(text, " None. Using the cache.");
-								    }
-									else()
-									{
-									    strcat(text, "Surplus of ");
-									    strcat(text, difference);
-									}
-									strcat(text, NEWLINE);
-
-									strcat(text, NEWLINE);
-									strcat(text, "=== Service Production ===");
-									strcat(text, NEWLINE);
-									
-									strcat(text, "Services produced: ");
-									strcat(text, supply);
-									strcat(text, NEWLINE);
-
-
-									strcat(text, NEWLINE);
-									strcat(text, "=== Service Consumption ===");
-									strcat(text, NEWLINE);
-
-									strcat(text, "Total Services needed: ");
-									strcat(text, demand_total);
-									strcat(text, NEWLINE);
-
-									strcat(text, "Civic Services needed: ");
-									strcat(text, demand_total_civics);
-									strcat(text, NEWLINE);
-
-									strcat(text, "Vehicle Services needed: ");
-									strcat(text, demand_total_vehicles);
-									strcat(text, NEWLINE);
-
-
-									strcat(text, NEWLINE);
-									strcat(text, "=== Service Market ===");
-									strcat(text, NEWLINE);
-									
-									strcat(text, "Services price (rubles): ");
-									strcat(text, current_price_rub);
-									strcat(text, NEWLINE);
-									
-									strcat(text, "Services price (dollars): ");
-									strcat(text, current_price_usd);
-									strcat(text, NEWLINE);
-									
-									strcat(text, "Last day balance (rubles): ");
-									strcat(text, rub_sum);
-									strcat(text, NEWLINE);
-									
-									strcat(text, "Last day balance (dollars): ");
-									strcat(text, usd_sum);
-									strcat(text, NEWLINE);
-
-									strcat(text, "Instant market spend (rubles): ");
-									strcat(text, money_rub_add);
-									strcat(text, NEWLINE);
-									
-									Scenario_WindowWithImageLeft("Services overview", text, "services_icon.png", 2);
-								}
-							}
-						}
-					}
-				}
-				if(INFORMATION_SHOWN > 0)
-				{
-					if(INTERNAL_DEMAND_FACTOR > 0.0 & INFORMATION_SHOWN > 1)
-					{
-						//show the internal supply and demand for services
-						Objectives_CreateNewString("services", "Services");
-						Objective_AddRequirement("services", demand_total * 1.0, "services_icon.png");
-						Objective_UpdateRequirement("services", 0, supply * 1.0);
-					}
-					if(INFORMATION_SHOWN > 1 & CAN_IMPORT_SERVICES > 0)
-					{
-						//show the service market price
-						Objectives_CreateNewString("service_price", "Current service price");
-						Objective_AddRequirement("service_price", 0.0, "editor/currency_ruble.png");
-						Objective_UpdateRequirement("service_price", 0, current_price_rub);
-						Objective_AddRequirement("service_price", 0.0, "editor/currency_dollar.png");
-						Objective_UpdateRequirement("service_price", 1, current_price_usd);
-					}
-					//show the services balance last day
-					Objectives_CreateNewString("services_balance", "Daily services balance");
-					Objective_AddRequirement("services_balance", 0.0, "editor/currency_ruble.png");
-					Objective_UpdateRequirement("services_balance", 0, rub_sum * 1.0);
-					Objective_AddRequirement("services_balance", 0.0, "editor/currency_dollar.png");
-					Objective_UpdateRequirement("services_balance", 1, usd_sum * 1.0);
-				}
 				game_time_prev = game_time;
-				//Script_LeaveCriticalSection();
+				Script_LeaveCriticalSection();
 			}
-
-		    Script_LeaveCriticalSection();
+            Script_Sleep(0.1);
 		}
+
+        // The while loop has broken, so the day has changed.
+		CorrectForTimeDilation();
+
 		rub_sum = rub_sum2;
 		usd_sum = usd_sum2;
-		Script_Sleep(0.1);
 	}
 	returnVoid();
 }
