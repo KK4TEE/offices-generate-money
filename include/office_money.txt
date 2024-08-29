@@ -38,6 +38,9 @@ defineVariable(int, rub_sum);
 defineVariable(int, usd_sum);
 defineVariable(int, rub_sum2);
 defineVariable(int, usd_sum2);
+defineVariable(int, rub_true_up);
+defineVariable(int, usd_true_up);
+defineVariable(int, game_speed);
 defineVariable(float, game_time);
 defineVariable(float, game_time_prev);
 defineVariable(float, day_started_time);
@@ -365,21 +368,28 @@ defineFunction(HandleStatisticsWindow,void)
                         strcat(text, supply_cache_capacity);
                         strcat(text, NEWLINE);
 
-                        strcat(text, "Time Factor: ");
-                        time_factor = time_factor * 1000.0;
-                        strcat(text, time_factor);
-                        strcat(text, NEWLINE);
+                        if (DEBUG_MODE_ENABLED > 0)
+                        {
+                            strcat(text, "Game Speed: ");
+                            strcat(text, game_speed);
+                            strcat(text, NEWLINE);
 
-                        time_factor = game_time - game_time_prev;
-                        strcat(text, "Time Delta: ");
-                        time_factor = time_factor * 1000.0;
-                        strcat(text, time_factor);
-                        strcat(text, NEWLINE);
+                            strcat(text, "Time Factor: ");
+                            time_factor = time_factor * 1000.0;
+                            strcat(text, time_factor);
+                            strcat(text, NEWLINE);
 
-                        time_factor = game_time - 0.0;
-                        strcat(text, "game_time: ");
-                        strcat(text, time_factor);
-                        strcat(text, NEWLINE);
+                            time_factor = game_time - game_time_prev;
+                            strcat(text, "Time Delta: ");
+                            time_factor = time_factor * 1000.0;
+                            strcat(text, time_factor);
+                            strcat(text, NEWLINE);
+
+                            time_factor = game_time - 0.0;
+                            strcat(text, "game_time: ");
+                            strcat(text, time_factor);
+                            strcat(text, NEWLINE);
+                        }
 
                         strcat(text, "Service trade: ");
                         if (difference < 0 & CAN_IMPORT_SERVICES > 0)
@@ -446,9 +456,16 @@ defineFunction(HandleStatisticsWindow,void)
                         strcat(text, usd_sum);
                         strcat(text, NEWLINE);
 
-                        strcat(text, "Instant market spend (rubles): ");
-                        strcat(text, money_rub_add);
-                        strcat(text, NEWLINE);
+                        if (DEBUG_MODE_ENABLED > 0)
+                        {
+                            strcat(text, "Rub True-up: ");
+                            strcat(text, rub_true_up);
+                            strcat(text, NEWLINE);
+
+                            strcat(text, "Instant market spend (rubles): ");
+                            strcat(text, money_rub_add);
+                            strcat(text, NEWLINE);
+                        }
 
                         Scenario_WindowWithImageLeft("Services overview", text, "services_icon.png", 2);
                     }
@@ -458,13 +475,28 @@ defineFunction(HandleStatisticsWindow,void)
     }
     returnVoid();
 }
+defineFunction(BillAccounts, void, int:rub_to_bill, int:usd_to_bill)
+{
+    if (-1.0 * rub_to_bill < MaxInt(money_rub, 0) & CAN_IMPORT_SERVICES > 0)
+    {
+        Money_AddRUB(rub_to_bill);
+    }
+    if (-1.0 * usd_to_bill < MaxInt(money_usd, 0) & CAN_IMPORT_SERVICES > 0)
+    {
+        Money_AddUSD(usd_to_bill);
+    }
+    rub_sum2 = rub_sum2 + rub_to_bill;
+    usd_sum2 = usd_sum2 + usd_to_bill;
+
+    returnVoid();
+}
 defineFunction(CorrectForTimeDilation, void)
 {
     // In-game time is scaled and reported differently than wall time
-    // At Normal game speed: 1 day = 60 real life seconds, 60 seconds from Script_GetGameTime(), 1.0x
-    // At Fast game speed:   1 day = 20 real life seconds, 40 seconds from Script_GetGameTime(), / 40/60
-    // At Num1 debug speed:  1 day = 03 real life seconds, 06 seconds from Script_GetGameTime(), / 6/60
-    // At Num2 debug speed:  1 day = 01 real life seconds, 03?seconds from Script_GetGameTime(), / 3/60
+    // At Normal game speed: 1 day = 60 real life seconds, 60 seconds from Script_GetGameTime()
+    // At Fast game speed:   1 day = 20 real life seconds, 40 seconds from Script_GetGameTime()
+    // At Num1 debug speed:  1 day = 03 real life seconds, 05 seconds from Script_GetGameTime()
+    // At Num2 debug speed:  1 day = 01 real life seconds, 02 seconds from Script_GetGameTime()
     //
     // This code assumes the player maintained constant speed throughout the day.
     // Any time within 80% of the time will be counted as the slower speed.
@@ -474,26 +506,38 @@ defineFunction(CorrectForTimeDilation, void)
     Script_EnterCriticalSection();
     Script_GetGameTime(game_time); // Refresh game time upon entering the critical section
     game_time = game_time - day_started_time; // The scaled time reported by the game engine
+
     if (game_time > 60 * 0.8)
     {
         // Normal game speed
         // No balance true-up required
-        time_factor = 1;
+        game_speed = 1;
+        time_factor = 0;
     }
     elseif(game_time > 20 * 0.8)
     {
         // Fast game speed
-        time_factor = 1 - 40.0/60.0;
+        game_speed = 2;
+        time_factor = (1 / (40.0/60.0)) - 1;
     }
-    elseif(game_time > 6 * 0.8)
+    elseif(game_time > 5 * 0.8)
     {
          // Num1 debug game speed
-        time_factor = 1 - 6.0/60.0;
+        game_speed = 3;
+        time_factor = (1 / (5.0/60.0)) - 1;
     }
     else()
     {
         // Num2 debug game speed
-        time_factor = 1 - 3.0/60.0;
+        game_speed = 4;
+        time_factor = (1 / (2.0/60.0)) - 1;
+    }
+
+    if (time_factor > 0)
+    {
+        rub_true_up = rub_sum2 * time_factor;
+        usd_true_up = usd_sum2 * time_factor;
+        BillAccounts(rub_true_up, usd_true_up);
     }
 
     Script_LeaveCriticalSection();
@@ -507,26 +551,9 @@ defineFunction(SendToMarket, void, float:ServicesToMarket)
     money_usd_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
     money_rub_add = money_rub_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
     money_usd_add = money_usd_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
-    if (-1.0 * money_rub_add < MaxInt(money_rub, 0) & CAN_IMPORT_SERVICES > 0)
-    {
-        Money_AddRUB(money_rub_add);
-    }
-    elseif(market_multiplier_rub> 0.0)
-    {
-        MakePeopleAngry(market_multiplier_rub * ModuleFloat(ServicesToMarket * 1.0 / demand_total));
-    }
-    if (-1.0 * money_usd_add < MaxInt(money_usd, 0) & CAN_IMPORT_SERVICES > 0)
-    {
-        Money_AddUSD(money_usd_add);
-    }
-    elseif(market_multiplier_usd > 0.0)
-    {
-        MakePeopleAngry(market_multiplier_usd * ModuleFloat(ServicesToMarket * 1.0 / demand_total));
-    }
-    rub_sum2 = rub_sum2 + money_rub_add;
-    usd_sum2 = usd_sum2 + money_usd_add;
 
-	returnVoid();
+    BillAccounts(money_rub_add, money_usd_add);
+    returnVoid();
 }
 defineFunction(Money, void, float:rub, float:usd)
 {

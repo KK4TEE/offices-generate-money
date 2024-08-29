@@ -37,6 +37,7 @@ defineVariable(float, COST_RAIL_FACTOR);
 defineVariable(float, COST_SHIP_FACTOR);
 defineVariable(float, COST_AIR_FACTOR);
 defineVariable(int, CAN_IMPORT_SERVICES);
+defineVariable(int, DEBUG_MODE_ENABLED);
 
 defineFunction(InitSettings, void)
 {
@@ -105,6 +106,9 @@ defineFunction(InitSettings, void)
 	COST_RAIL_FACTOR = 0.002;
 	COST_SHIP_FACTOR = 0.0002;
 	COST_AIR_FACTOR = 0.05;
+
+	// Set to 1 to print debug text in the generated reports. 0 disables the extra text.
+	DEBUG_MODE_ENABLED = 0;
 	
 	returnVoid();
 }
