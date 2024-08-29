@@ -496,12 +496,10 @@ defineFunction(CorrectForTimeDilation, void)
     // At Normal game speed: 1 day = 60 real life seconds, 60 seconds from Script_GetGameTime()
     // At Fast game speed:   1 day = 20 real life seconds, 40 seconds from Script_GetGameTime()
     // At Num1 debug speed:  1 day = 03 real life seconds, 05 seconds from Script_GetGameTime()
-    // At Num2 debug speed:  1 day = 01 real life seconds, 02 seconds from Script_GetGameTime()
+    // At Num2 debug speed:  1 day = 01 real life seconds, ?? seconds from Script_GetGameTime()
     //
     // This code assumes the player maintained constant speed throughout the day.
     // Any time within 80% of the time will be counted as the slower speed.
-    // game_time
-    // day_started_time;
 
     Script_EnterCriticalSection();
     Script_GetGameTime(game_time); // Refresh game time upon entering the critical section
