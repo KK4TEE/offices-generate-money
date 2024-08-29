@@ -15,16 +15,16 @@ defineVariable(float, price_inertia);
 defineVariable(int, population);
 defineVariable(float, services);
 defineVariable(int, services_int);
-defineVariable(int, demand);
-defineVariable(int, demand_total);
-defineVariable(int, demand_total_civics);
-defineVariable(int, demand_total_vehicles);
+defineVariable(float, demand);
+defineVariable(float, demand_total);
+defineVariable(float, demand_total_civics);
+defineVariable(float, demand_total_vehicles);
 defineVariable(float, demand_vehicles);
 defineVariable(float, vehicle_cost);
-defineVariable(int, supply);
-defineVariable(int, supply_cache);
-defineVariable(int, supply_cache_capacity);
-defineVariable(int, difference);
+defineVariable(float, supply);
+defineVariable(float, supply_cache);
+defineVariable(float, supply_cache_capacity);
+defineVariable(float, difference);
 defineVariable(int, money_rub);
 defineVariable(int, money_usd);
 defineVariable(int, money_rub_add);
@@ -43,7 +43,7 @@ defineVariable(int, window_id);
 defineVariable(int, window_exists);
 defineVariable(Window, window);
 defineVariable(int, clicked_object_id);
-defineArray(char[400], text);
+defineArray(char[500], text);
 defineVariable(char, NEWLINE);
 
 // Worker for which we are computing the fee
@@ -194,25 +194,6 @@ defineFunction(CalculateSupply, int)
                     if (worker.bWorkplaceAsProfesor ? 1) {
                         services = services + HQ_FACTOR;
                     }
-                }
-            }
-
-            if(building.nType ? BUILDINGTYPE_CITYHALL)
-            {
-                // For each worker currently in the building, add some services
-                for (j=0, j<building.nWorkersNum, j=j+1)
-                {
-                    // Obtain the worker
-                    Building_Workers_GetID(i, j, worker_id);
-                    worker.GetDataByIndex(worker_id);
-
-                    //  The money we get from uneducated workers is diminished
-                    //  while the number of educated is increased
-                    service_scale = PRIMARY_ED_FACTOR;
-                    if (worker.fEducation>1.999) {
-                        service_scale = UNIVERSITY_ED_FACTOR;
-                    }
-                    services = services + service_scale;
                 }
             }
 
@@ -376,11 +357,12 @@ defineFunction(Money, void, float:rub, float:usd)
 		Date_GetCurrentDate_D365Y(processing_day, year);
 		while(current_day ? processing_day)
 		{
+		    Script_EnterCriticalSection();
 			Date_GetCurrentDate_D365Y(current_day, year);
 			Script_GetGameTime(game_time);
 			if(game_time - game_time_prev > 2.5)
 			{
-				Script_EnterCriticalSection();
+				//Script_EnterCriticalSection();
 				time_factor = (game_time - game_time_prev) / 60.0;
 				Building_GetNumberOfBuildings(n);
 				Money_GetRUB(money_rub);
@@ -398,12 +380,21 @@ defineFunction(Money, void, float:rub, float:usd)
 				supply = CalculateSupply();
 				difference = supply - demand_total;
 
+				difference = difference * time_factor;
+
+                // Grow the cache if supply or demand is a historic high
 			    if (supply * SUPPLY_CACHE_DAYS > supply_cache_capacity)
 			    {
-			        supply_cache_capacity = supply;
+			        supply_cache_capacity = supply * SUPPLY_CACHE_DAYS;
+			    }
+			    if (demand_total * SUPPLY_CACHE_DAYS > supply_cache_capacity)
+			    {
+			        supply_cache_capacity = demand_total * SUPPLY_CACHE_DAYS;
 			    }
 
+                // Determine how the service cache should be used
 				supply_cache = supply_cache + difference;
+
 				if(supply_cache > supply_cache_capacity)
                 {
                     difference = supply_cache - supply_cache_capacity;
@@ -416,15 +407,37 @@ defineFunction(Money, void, float:rub, float:usd)
                 }
                 else()
                 {
+                    // All transactions completed using the cache. No trade needed.
                     difference = 0;
+                }
+
+                // Use the cache to store the decimal values that would have been lost in the float to int truncation.
+                // Note: The function 'ModuleInt' is used as a bodge to force a truncation without adding a variable.
+                // It returns the absolute value, so the sign must be accounted for.
+                if (difference > 0)
+                {
+                    // TODO: Test this section
+                    supply_cache = supply_cache + difference - ModuleInt(difference);  // Add the fractional part to the supply cache
+                    difference = ModuleInt(difference);  // Keep only the integer part for further calculations
+                }
+                elseif (difference < 0)
+                {
+                    supply_cache = supply_cache + difference + ModuleInt(difference);  // Add the fractional part to the supply cache
+                    difference = 0 - ModuleInt(difference);  // Keep only the integer part for further calculations
+                }
+
+                if (supply_cache < 0)
+                {
+                    supply_cache = supply_cache + 1;
+                    difference = difference - 1;
                 }
 
 				current_price_rub = ScaledRUB(Price(1, difference));
 				current_price_usd = ScaledUSD(Price(0, difference));
-				money_rub_add = MaxFloat(difference, 0.0) * rub * current_price_rub * time_factor;
-				money_usd_add = MaxFloat(difference, 0.0) * usd * current_price_usd * time_factor;
-				money_rub_add = money_rub_add - MaxFloat(-difference, 0.0) * rub * current_price_rub * time_factor;
-				money_usd_add = money_usd_add - MaxFloat(-difference, 0.0) * usd * current_price_usd * time_factor;
+				money_rub_add = MaxFloat(difference, 0.0) * rub * current_price_rub;
+				money_usd_add = MaxFloat(difference, 0.0) * usd * current_price_usd;
+				money_rub_add = money_rub_add - MaxFloat(-difference, 0.0) * rub * current_price_rub;
+				money_usd_add = money_usd_add - MaxFloat(-difference, 0.0) * usd * current_price_usd;
 				if (-1.0 * money_rub_add < MaxInt(money_rub, 0) & CAN_IMPORT_SERVICES > 0)
 				{
 					Money_AddRUB(money_rub_add);
@@ -443,6 +456,10 @@ defineFunction(Money, void, float:rub, float:usd)
 				}
 				rub_sum2 = rub_sum2 + money_rub_add;
 				usd_sum2 = usd_sum2 + money_usd_add;
+
+				// User Interface
+				difference = supply - demand_total; // Rescale for full day
+
 				Objective_Remove("services");
 				Objective_Remove("service_price");
 				Objective_Remove("services_balance");
@@ -471,6 +488,11 @@ defineFunction(Money, void, float:rub, float:usd)
 									strcat(text, supply_cache);
 									strcat(text, " / ");
 									strcat(text, supply_cache_capacity);
+									strcat(text, NEWLINE);
+
+									strcat(text, "Time Factor: ");
+									time_factor = time_factor * 1000.0;
+									strcat(text, time_factor);
 									strcat(text, NEWLINE);
 
 									strcat(text, "Service trade: ");
@@ -536,6 +558,11 @@ defineFunction(Money, void, float:rub, float:usd)
 									
 									strcat(text, "Last day balance (dollars): ");
 									strcat(text, usd_sum);
+									strcat(text, NEWLINE);
+
+									strcat(text, "Instant market spend (rubles): ");
+									strcat(text, money_rub_add);
+									strcat(text, NEWLINE);
 									
 									Scenario_WindowWithImageLeft("Services overview", text, "services_icon.png", 2);
 								}
@@ -569,11 +596,14 @@ defineFunction(Money, void, float:rub, float:usd)
 					Objective_UpdateRequirement("services_balance", 1, usd_sum * 1.0);
 				}
 				game_time_prev = game_time;
-				Script_LeaveCriticalSection();
+				//Script_LeaveCriticalSection();
 			}
+
+		    Script_LeaveCriticalSection();
 		}
 		rub_sum = rub_sum2;
 		usd_sum = usd_sum2;
+		Script_Sleep(0.1);
 	}
 	returnVoid();
 }
