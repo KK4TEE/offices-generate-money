@@ -490,6 +490,18 @@ defineFunction(BillAccounts, void, int:rub_to_bill, int:usd_to_bill)
 
     returnVoid();
 }
+defineFunction(SendToMarket, void, float:ServicesToMarket)
+{
+    current_price_rub = ScaledRUB(Price(1, ServicesToMarket));
+    current_price_usd = ScaledUSD(Price(0, ServicesToMarket));
+    money_rub_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
+    money_usd_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
+    money_rub_add = money_rub_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
+    money_usd_add = money_usd_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
+
+    BillAccounts(money_rub_add, money_usd_add);
+    returnVoid();
+}
 defineFunction(CorrectForTimeDilation, void)
 {
     // In-game time is scaled and reported differently than wall time
@@ -522,7 +534,7 @@ defineFunction(CorrectForTimeDilation, void)
     {
          // Num1 debug game speed
         game_speed = 3;
-        time_factor = (1 / (5.0/60.0)) - 1;
+        time_factor = (1 / (6.0/60.0)) - 1;
     }
     else()
     {
@@ -530,6 +542,24 @@ defineFunction(CorrectForTimeDilation, void)
         game_speed = 4;
         time_factor = (1 / (2.0/60.0)) - 1;
     }
+
+    // Fallback calculation
+        if (game_speed > 2 & rub_sum2 ? 0 & usd_sum2 ? 0)
+        {
+            // TODO: Refactor calculating 'difference' to a reusable function
+            time_factor = -1;
+            demand_total_vehicles = 0;
+            if (VEHICLE_DIFFICULTY > 0.0)
+            {
+                demand_total_vehicles = 0 + CalculateVehicleDemand();
+            }
+
+            demand_total_civics = CalculateCivicDemand();
+            demand_total = demand_total_civics + demand_total_vehicles;
+            supply = CalculateSupply();
+            difference = supply - demand_total;
+            SendToMarket(difference);
+        }
 
     if (time_factor > 0)
     {
@@ -540,18 +570,6 @@ defineFunction(CorrectForTimeDilation, void)
 
     Script_LeaveCriticalSection();
 	returnVoid();
-}
-defineFunction(SendToMarket, void, float:ServicesToMarket)
-{
-    current_price_rub = ScaledRUB(Price(1, ServicesToMarket));
-    current_price_usd = ScaledUSD(Price(0, ServicesToMarket));
-    money_rub_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
-    money_usd_add = MaxFloat(ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
-    money_rub_add = money_rub_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_rub * current_price_rub;
-    money_usd_add = money_usd_add - MaxFloat(-ServicesToMarket, 0.0) * market_multiplier_usd * current_price_usd;
-
-    BillAccounts(money_rub_add, money_usd_add);
-    returnVoid();
 }
 defineFunction(Money, void, float:rub, float:usd)
 {
@@ -622,71 +640,74 @@ defineFunction(Money, void, float:rub, float:usd)
 				Money_GetRUB(money_rub);
 				Money_GetUSD(money_usd);
 
-				demand_total_vehicles = 0;
-				if (VEHICLE_DIFFICULTY > 0.0)
+                if (game_speed ? 1 | game_speed ? 2)
                 {
-                    demand_total_vehicles = 0 + CalculateVehicleDemand();
+                    demand_total_vehicles = 0;
+                    if (VEHICLE_DIFFICULTY > 0.0)
+                    {
+                        demand_total_vehicles = 0 + CalculateVehicleDemand();
+                    }
+
+                    demand_total_civics = CalculateCivicDemand();
+                    demand_total = demand_total_civics + demand_total_vehicles;
+
+                    supply = CalculateSupply();
+                    difference = supply - demand_total;
+
+                    difference = difference * time_factor;
+
+                    // Grow the cache if supply or demand is a historic high
+                    if (supply * SUPPLY_CACHE_DAYS > supply_cache_capacity)
+                    {
+                        supply_cache_capacity = supply * SUPPLY_CACHE_DAYS;
+                    }
+                    if (demand_total * SUPPLY_CACHE_DAYS > supply_cache_capacity)
+                    {
+                        supply_cache_capacity = demand_total * SUPPLY_CACHE_DAYS;
+                    }
+
+                    // Determine how the service cache should be used
+                    supply_cache = supply_cache + difference;
+
+                    if(supply_cache > supply_cache_capacity)
+                    {
+                        difference = supply_cache - supply_cache_capacity;
+                        supply_cache = supply_cache_capacity;
+                    }
+                    elseif(supply_cache < 0)
+                    {
+                        difference = supply_cache;
+                        supply_cache = 0;
+                    }
+                    else()
+                    {
+                        // All transactions completed using the cache. No trade needed.
+                        difference = 0;
+                    }
+
+                    // Use the cache to store the decimal values that would have been lost in the float to int truncation.
+                    // Note: The function 'ModuleInt' is used as a bodge to force a truncation without adding a variable.
+                    // It returns the absolute value, so the sign must be accounted for.
+                    if (difference > 0)
+                    {
+                        // TODO: Test this section
+                        supply_cache = supply_cache + difference - ModuleInt(difference);  // Add the fractional part to the supply cache
+                        difference = ModuleInt(difference);  // Keep only the integer part for further calculations
+                    }
+                    elseif (difference < 0)
+                    {
+                        supply_cache = supply_cache + difference + ModuleInt(difference);  // Add the fractional part to the supply cache
+                        difference = 0 - ModuleInt(difference);  // Keep only the integer part for further calculations
+                    }
+
+                    if (supply_cache < 0)
+                    {
+                        supply_cache = supply_cache + 1;
+                        difference = difference - 1;
+                    }
+
+                    SendToMarket(difference);
                 }
-
-				demand_total_civics = CalculateCivicDemand();
-                demand_total = demand_total_civics + demand_total_vehicles;
-
-				supply = CalculateSupply();
-				difference = supply - demand_total;
-
-				difference = difference * time_factor;
-
-                // Grow the cache if supply or demand is a historic high
-			    if (supply * SUPPLY_CACHE_DAYS > supply_cache_capacity)
-			    {
-			        supply_cache_capacity = supply * SUPPLY_CACHE_DAYS;
-			    }
-			    if (demand_total * SUPPLY_CACHE_DAYS > supply_cache_capacity)
-			    {
-			        supply_cache_capacity = demand_total * SUPPLY_CACHE_DAYS;
-			    }
-
-                // Determine how the service cache should be used
-				supply_cache = supply_cache + difference;
-
-				if(supply_cache > supply_cache_capacity)
-                {
-                    difference = supply_cache - supply_cache_capacity;
-                    supply_cache = supply_cache_capacity;
-                }
-                elseif(supply_cache < 0)
-                {
-                    difference = supply_cache;
-                    supply_cache = 0;
-                }
-                else()
-                {
-                    // All transactions completed using the cache. No trade needed.
-                    difference = 0;
-                }
-
-                // Use the cache to store the decimal values that would have been lost in the float to int truncation.
-                // Note: The function 'ModuleInt' is used as a bodge to force a truncation without adding a variable.
-                // It returns the absolute value, so the sign must be accounted for.
-                if (difference > 0)
-                {
-                    // TODO: Test this section
-                    supply_cache = supply_cache + difference - ModuleInt(difference);  // Add the fractional part to the supply cache
-                    difference = ModuleInt(difference);  // Keep only the integer part for further calculations
-                }
-                elseif (difference < 0)
-                {
-                    supply_cache = supply_cache + difference + ModuleInt(difference);  // Add the fractional part to the supply cache
-                    difference = 0 - ModuleInt(difference);  // Keep only the integer part for further calculations
-                }
-
-                if (supply_cache < 0)
-                {
-                    supply_cache = supply_cache + 1;
-                    difference = difference - 1;
-                }
-
-				SendToMarket(difference);
 
 				// User Interface
 				difference = supply - demand_total; // Rescale for full day
