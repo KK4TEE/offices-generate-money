@@ -128,7 +128,7 @@ defineFunction(CalculateVehicleDemand, float)
 		elseif(vehicle.nVehicleType < 6)
 		{
 			vehicles_num_trains = vehicles_num_trains + 1;
-            vehicle_cost = vehicle_cost + BASE_COST_RAIL + COST_RAIL_FACTOR * vehicle_cost;
+            vehicle_cost = BASE_COST_RAIL + COST_RAIL_FACTOR * vehicle_cost;
 		}
 		//ships
 		elseif(vehicle.nVehicleType ? VEHICLETYPE_SHIP)
@@ -146,6 +146,7 @@ defineFunction(CalculateVehicleDemand, float)
 		// If the vehicle is idle in a depot, it doesn't need many services
 		// Vehicles on a route report homeWorkplaceID = 0
 		// TODO: Add check if it is an endstation
+
         if(vehicle.nBuilding_CurrentID ? vehicle.nBuilding_HomeWorkplaceID & vehicle.nBuilding_CurrentID > 0)
         {
             debug_workplace_id = vehicle.nBuilding_HomeWorkplaceID;
