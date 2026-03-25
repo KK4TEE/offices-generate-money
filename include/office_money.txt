@@ -125,8 +125,8 @@ defineVariable(float, daily_unmitigated_permit_deficit);
 defineVariable(float, daily_permit_demand);
 defineVariable(float, permit_deficit_ratio);
 
-defineVariable(float, display_civic_avail);
-defineVariable(float, display_permit_avail);
+// UI Tracking Variables
+defineVariable(float, display_flex_demand);
 defineVariable(float, temp_trade);
 
 defineVariable(int, count_active_sites);
@@ -419,12 +419,16 @@ defineFunction(CalculateSupplies, void)
     admin_pool = supply_flex + supply_civic + supply_permit;
     permit_total_demand = permit_passive_demand + permit_active_demand;
 
-    display_civic_avail = supply_civic + supply_flex;
-    if (supply_civic > demand_total) {
-        display_permit_avail = supply_permit + supply_flex;
-    } else() {
-        display_permit_avail = supply_permit + (supply_flex - (demand_total - supply_civic));
-        if (display_permit_avail < 0.0) { display_permit_avail = 0.0; }
+    display_flex_demand = 0.0;
+    
+    if (demand_total > supply_civic) 
+    {
+        display_flex_demand = display_flex_demand + (demand_total - supply_civic);
+    }
+    
+    if (permit_total_demand > supply_permit) 
+    {
+        display_flex_demand = display_flex_demand + (permit_total_demand - supply_permit);
     }
 
     returnVoid();
@@ -589,9 +593,6 @@ defineFunction(SendToMarket, void, float:ServicesToMarket)
     returnVoid();
 }
 
-// =========================================================================
-// REFACTORED WATERFALL LOGIC
-// =========================================================================
 defineFunction(ProcessAdminWaterfall, void)
 {
     if (BUREAUCRACY_ENABLED > 0)
@@ -758,20 +759,19 @@ defineFunction(UpdateInformationDisplay, void)
         {
             if (BUREAUCRACY_ENABLED > 0)
             {
-                Objectives_CreateNewString("services", "Civic | Permits (Avail/Need)");
-                Objective_AddRequirement("services", demand_total * 1.0, "services_icon.png");
+                Objectives_CreateNewString("services", "Civic | Permits | Flex (Avail/Need)");
                 
-                if (display_civic_avail > demand_total) 
-                { 
-                    Objective_UpdateRequirement("services", 0, demand_total * 1.0); 
-                }
-                else() 
-                { 
-                    Objective_UpdateRequirement("services", 0, display_civic_avail * 1.0); 
-                }
+                // 1. Dedicated Civic vs Demand (Uncapped to show surplus)
+                Objective_AddRequirement("services", demand_total * 1.0, "services_icon.png");
+                Objective_UpdateRequirement("services", 0, supply_civic * 1.0);
 
+                // 2. Dedicated Permits vs Demand (Uncapped to show surplus)
                 Objective_AddRequirement("services", permit_total_demand * 1.0, "");
-                Objective_UpdateRequirement("services", 1, display_permit_avail * 1.0);
+                Objective_UpdateRequirement("services", 1, supply_permit * 1.0);
+                
+                // 3. Flex Admin Buffer vs Flex Demand
+                Objective_AddRequirement("services", display_flex_demand * 1.0, "");
+                Objective_UpdateRequirement("services", 2, supply_flex * 1.0);
             }
             else()
             {
@@ -872,6 +872,11 @@ defineFunction(HandleStatisticsWindow,void)
                             strcat(text, "Civic Services needed: "); strcat(text, demand_total_civics); strcat(text, NEWLINE);
                             strcat(text, "Vehicle Services needed: "); strcat(text, demand_total_vehicles); strcat(text, NEWLINE);
                         }
+
+                        strcat(text, NEWLINE);
+                        strcat(text, "=== MARKET RATES ==="); strcat(text, NEWLINE);
+                        strcat(text, "Price (rubles): "); strcat(text, current_price_rub); strcat(text, NEWLINE);
+                        strcat(text, "Price (dollars): "); strcat(text, current_price_usd); strcat(text, NEWLINE);
 
                         if (DEBUG_MODE_ENABLED > 0)
                         {
