@@ -39,6 +39,19 @@ defineVariable(float, COST_AIR_FACTOR);
 defineVariable(int, CAN_IMPORT_SERVICES);
 defineVariable(int, DEBUG_MODE_ENABLED);
 
+// Bureaucracy Mod Settings
+defineVariable(int, BUREAUCRACY_ENABLED);
+defineVariable(float, PERMIT_SUPPLY_CITYHALL);
+defineVariable(float, PERMIT_SUPPLY_TECH_STAFF);
+defineVariable(float, PERMIT_SUPPLY_TECH_PROF);
+defineVariable(float, PERMIT_SUPPLY_SECRET_POLICE);
+defineVariable(float, PERMIT_DEMAND_OFFICE);
+defineVariable(float, PERMIT_DEMAND_ACTIVE_MULT);
+defineVariable(float, PERMIT_PENALTY_HEALTH_DRAIN);
+defineVariable(float, PERMIT_PENALTY_HAPP_DRAIN);
+defineVariable(float, PERMIT_FIRE_CHANCE_MULT);
+defineVariable(float, PERMIT_CACHE_DAYS);
+
 defineFunction(InitSettings, void)
 {
 	//you can modify the following values to enable or disable features or change the balance, making the game harder or easier
@@ -106,6 +119,45 @@ defineFunction(InitSettings, void)
 	COST_RAIL_FACTOR = 0.002;
 	COST_SHIP_FACTOR = 0.0002;
 	COST_AIR_FACTOR = 0.05;
+
+	// =========================================================================
+    // BUREAUCRACY & CONSTRUCTION PERMITS MOD
+    // =========================================================================
+    
+    // Master Toggle: 1 to enable the Bureaucracy mod, 0 to completely disable it.
+    BUREAUCRACY_ENABLED = 1; 
+
+    // --- Supply Generation ---
+    // Permits generated per generic worker in a City Hall
+    PERMIT_SUPPLY_CITYHALL = 1.0; 
+    
+    // Permits generated per staff member (non-professor) at a Technical University
+    PERMIT_SUPPLY_TECH_STAFF = 1.5; 
+    
+    // Permits generated per Professor at a Technical University
+    PERMIT_SUPPLY_TECH_PROF = 3.0; 
+    
+    // Percentage efficiency boost per Secret Police worker (0.005 = 0.5% boost per worker)
+    PERMIT_SUPPLY_SECRET_POLICE = 0.005; 
+
+    // --- Demand Generation ---
+    // Passive daily permit drain just for having a Construction Office or Rail Office built
+    PERMIT_DEMAND_OFFICE = 5.0; 
+    
+    // Multiplier for active construction demand based on total max workers needed for the project
+    // 0.1 means a building requiring 100 workers demands 10 permits daily.
+    PERMIT_DEMAND_ACTIVE_MULT = 0.1; 
+
+    // --- Penalties ---
+    // Daily drain on health for citizens living/working in a permanently "rushed" building
+    PERMIT_PENALTY_HEALTH_DRAIN = 0.005; 
+    
+    // Daily drain on happiness for citizens living/working in a permanently "rushed" building
+    PERMIT_PENALTY_HAPP_DRAIN = 0.005; 
+    
+    // Multiplier for the chance of a fire breaking out on an active site during a deficit
+    // 1.0 uses the default ratio (e.g., 50% deficit = up to 0.5% chance per tick)
+    PERMIT_FIRE_CHANCE_MULT = 1.0;
 
 	// Set to 1 to print debug text in the generated reports. 0 disables the extra text.
 	DEBUG_MODE_ENABLED = 0;

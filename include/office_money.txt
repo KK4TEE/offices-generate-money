@@ -55,7 +55,10 @@ defineVariable(int, window_id);
 defineVariable(int, window_exists);
 defineVariable(Window, window);
 defineVariable(int, clicked_object_id);
-defineArray(char[600], text);
+
+// Increased from 600 to 1024 to accommodate expanded City Hall UI
+defineArray(char[1024], text);
+
 defineVariable(char, NEWLINE);
 defineVariable(int, debug_workplace_id);
 
@@ -71,6 +74,34 @@ defineVariable(vec3, vector);
 defineVariable(StatRecord, stat_record);
 
 defineVariable(GameSetting, game);
+
+// =========================================================================
+// BUREAUCRACY MOD: VARIABLES
+// =========================================================================
+defineVariable(float, permit_supply);
+defineVariable(float, permit_demand);
+defineVariable(float, police_bonus);
+defineVariable(float, permit_deficit);
+defineVariable(float, permit_deficit_ratio);
+
+defineVariable(int, count_active_sites);
+defineVariable(int, count_construction_offices);
+defineVariable(float, supply_city_hall);
+defineVariable(float, supply_university);
+defineVariable(float, demand_overhead);
+defineVariable(float, demand_active);
+defineVariable(float, police_bonus_pct);
+
+defineVariable(int, roll);
+defineVariable(float, float_roll);
+defineVariable(int, cmp_res);
+
+defineArray(char[64], tag_buf);
+defineArray(char[64], tag_under_construction);
+defineArray(char[64], tag_rushed);
+defineArray(char[64], tag_clean);
+defineArray(char[64], tag_empty);
+
 
 defineFunction(CalculateVehicleDemand, float)
 {
@@ -279,6 +310,179 @@ defineFunction(CalculateSupply, float)
     return(supply);
 }
 
+
+// =========================================================================
+// BUREAUCRACY MOD: CORE FUNCTIONS
+// =========================================================================
+
+defineFunction(CalculatePermits, void)
+{
+    permit_supply = 0.0;
+    permit_demand = 0.0;
+    police_bonus = 0.0;
+    
+    // Reset our new tracking variables
+    count_active_sites = 0;
+    count_construction_offices = 0;
+    supply_city_hall = 0.0;
+    supply_university = 0.0;
+    demand_overhead = 0.0;
+    demand_active = 0.0;
+    
+    Building_GetNumberOfBuildings(n);
+
+    for (i = 0, i < n, i = i + 1)
+    {
+        building.GetDataByIndex(i);
+
+        // --- SUPPLY ---
+        if (building.fPercFinished > 0.9999)
+        {
+            if (building.nType ? BUILDINGTYPE_CITYHALL)
+            {
+                supply_city_hall = supply_city_hall + (building.nWorkersNum * PERMIT_SUPPLY_CITYHALL);
+            }
+            elseif (building.nType ? BUILDINGTYPE_UNIVERSITY & building.nSubType ? BUILDINGSUBTYPE_TECHNICAL)
+            {
+                for (j = 0, j < building.nWorkersNum, j = j + 1)
+                {
+                    Building_Workers_GetID(i, j, worker_id);
+                    worker.GetDataByIndex(worker_id);
+                    
+                    if (worker.bWorkplaceAsProfesor ? 1)
+                    {
+                        supply_university = supply_university + PERMIT_SUPPLY_TECH_PROF;
+                    }
+                    else()
+                    {
+                        supply_university = supply_university + PERMIT_SUPPLY_TECH_STAFF;
+                    }
+                }
+            }
+            elseif (building.nType ? BUILDINGTYPE_SECRET_POLICE)
+            {
+                police_bonus = police_bonus + (building.nWorkersNum * PERMIT_SUPPLY_SECRET_POLICE);
+            }
+            
+            // Overhead Demand
+            if (building.nType ? BUILDINGTYPE_CONSTRUCTION_OFFICE | building.nType ? BUILDINGTYPE_CONSTRUCTION_OFFICE_RAIL)
+            {
+                demand_overhead = demand_overhead + PERMIT_DEMAND_OFFICE; 
+                count_construction_offices = count_construction_offices + 1;
+            }
+        }
+
+        // --- ACTIVE DEMAND ---
+        if (building.bConstructionActive ? 1)
+        {
+            demand_active = demand_active + (building.nWorkersNeeded * PERMIT_DEMAND_ACTIVE_MULT); 
+            count_active_sites = count_active_sites + 1;
+        }
+    }
+
+    // Tally up the final numbers
+    permit_supply = supply_city_hall + supply_university;
+    permit_supply = permit_supply * (1.0 + police_bonus);
+    
+    permit_demand = demand_overhead + demand_active;
+
+    if (permit_demand > permit_supply)
+    {
+        permit_deficit = permit_demand - permit_supply;
+    }
+    else()
+    {
+        permit_deficit = 0.0;
+    }
+
+    returnVoid();
+}
+
+defineFunction(ProcessPermitPenalties, void)
+{
+    if (permit_demand > 0.0)
+    {
+        permit_deficit_ratio = (permit_deficit / permit_demand) * 100.0; 
+    }
+    else()
+    {
+        permit_deficit_ratio = 0.0;
+    }
+
+    Building_GetNumberOfBuildings(n);
+    
+    for (i = 0, i < n, i = i + 1)
+    {
+        building.GetDataByIndex(i);
+        Building_GetCharTag(i, tag_buf);
+
+        // Initial tagging logic
+        strcmp(tag_buf, tag_empty, cmp_res);
+        if (cmp_res ? 0)
+        {
+            if (building.fPercFinished > 0.9999)
+            {
+                Building_SetTagChar(tag_clean, i); 
+            }
+            else()
+            {
+                Building_SetTagChar(tag_under_construction, i); 
+            }
+        }
+
+        // PENALTY A: Fires
+        if (building.bConstructionActive ? 1 & permit_deficit > 0.0)
+        {
+            Random(roll);
+            roll = roll % 10000;
+            float_roll = roll * 1.0; 
+            
+            if (float_roll < (permit_deficit_ratio * PERMIT_FIRE_CHANCE_MULT) & building.bFireEnabled ? 1)
+            {
+                Building_StartFire(i);
+            }
+        }
+
+        // PENALTY B: Rushed Builds / The Curse (Completion Check)
+        if (building.fPercFinished > 0.9999)
+        {
+            strcmp(tag_buf, tag_under_construction, cmp_res);
+            if (cmp_res ? 0)
+            {
+                if (permit_deficit > 0.0)
+                {
+                    Building_SetTagChar(tag_rushed, i); 
+                }
+                else()
+                {
+                    Building_SetTagChar(tag_clean, i); 
+                }
+            }
+
+            // Passive Status Drain
+            strcmp(tag_buf, tag_rushed, cmp_res);
+            if (cmp_res ? 0)
+            {
+                for (j = 0, j < building.nWorkersNum, j = j + 1)
+                {
+                    Building_Workers_GetID(i, j, worker_id);
+                    worker.GetDataByIndex(worker_id);
+
+                    if (worker.fStatusHealth > 0.1)
+                    {
+                        Person_SetStatus(worker_id, 2, worker.fStatusHealth - PERMIT_PENALTY_HEALTH_DRAIN);
+                    }
+                    if (worker.fStatusHappiness > 0.1)
+                    {
+                        Person_SetStatus(worker_id, 0, worker.fStatusHappiness - PERMIT_PENALTY_HAPP_DRAIN);
+                    }
+                }
+            }
+        }
+    }
+    returnVoid();
+}
+
 //currency: 1 - rubles, 0 - dollars, excess: >0 - export, <0 - import
 defineFunction(Price, float, int:currency, float:excess) 
 {
@@ -444,7 +648,6 @@ defineFunction(HandleStatisticsWindow,void)
                         strcat(text, supply);
                         strcat(text, NEWLINE);
 
-
                         strcat(text, NEWLINE);
                         strcat(text, "=== Service Consumption ===");
                         strcat(text, NEWLINE);
@@ -460,7 +663,6 @@ defineFunction(HandleStatisticsWindow,void)
                         strcat(text, "Vehicle Services needed: ");
                         strcat(text, demand_total_vehicles);
                         strcat(text, NEWLINE);
-
 
                         strcat(text, NEWLINE);
                         strcat(text, "=== Service Market ===");
@@ -521,7 +723,67 @@ defineFunction(HandleStatisticsWindow,void)
                             strcat(text, NEWLINE);
                         }
 
-                        Scenario_WindowWithImageLeft("Services overview", text, "services_icon.png", 2);
+                        // --- BUREAUCRACY MOD: UI INJECTION ---
+                        // --- BUREAUCRACY MOD: UI INJECTION ---
+                        if (BUREAUCRACY_ENABLED > 0)
+                        {
+                            strcat(text, NEWLINE);
+                            strcat(text, "=== Bureaucracy & Permits ===");
+                            strcat(text, NEWLINE);
+
+                            strcat(text, "Admin Bandwidth (Supply): ");
+                            strcat(text, permit_supply);
+                            strcat(text, NEWLINE);
+                            
+                            strcat(text, "  - City Halls: ");
+                            strcat(text, supply_city_hall);
+                            strcat(text, NEWLINE);
+                            
+                            strcat(text, "  - Universities: ");
+                            strcat(text, supply_university);
+                            strcat(text, NEWLINE);
+                            
+                            strcat(text, "  - Police Efficiency Bonus: +");
+                            police_bonus_pct = police_bonus * 100.0;
+                            strcat(text, police_bonus_pct);
+                            strcat(text, "%");
+                            strcat(text, NEWLINE);
+
+                            strcat(text, NEWLINE);
+                            
+                            strcat(text, "Active Load (Demand): ");
+                            strcat(text, permit_demand);
+                            strcat(text, NEWLINE);
+                            
+                            strcat(text, "  - Const. Offices (");
+                            strcat(text, count_construction_offices);
+                            strcat(text, "): ");
+                            strcat(text, demand_overhead);
+                            strcat(text, NEWLINE);
+                            
+                            strcat(text, "  - Active Sites (");
+                            strcat(text, count_active_sites);
+                            strcat(text, "): ");
+                            strcat(text, demand_active);
+                            strcat(text, NEWLINE);
+
+                            strcat(text, NEWLINE);
+
+                            if (permit_deficit > 0.0)
+                            {
+                                strcat(text, "SYSTEM STRAINED: Deficit of ");
+                                strcat(text, permit_deficit);
+                                strcat(text, NEWLINE);
+                            }
+                            else()
+                            {
+                                strcat(text, "System Stable: Bureaucracy is keeping up.");
+                                strcat(text, NEWLINE);
+                            }
+                        }
+
+                        // Final UI Call (Uses updated text array combining both mods)
+                        Scenario_WindowWithImageLeft("City Administration", text, "services_icon.png", 2);
                     }
                 }
             }
@@ -564,7 +826,7 @@ defineFunction(SendToMarket, void, float:ServicesToMarket)
 
     BillAccounts(money_rub_add, money_usd_add);
 
-    // FIX: Restored penalty for unfulfilled demand if importing fails
+    // Restored penalty for unfulfilled demand if importing fails
     if (ServicesToMarket < 0.0)
     {
         if (-1.0 * money_rub_add < MaxInt(money_rub, 0) & CAN_IMPORT_SERVICES > 0)
@@ -598,14 +860,6 @@ defineFunction(SendToMarket, void, float:ServicesToMarket)
 defineFunction(CorrectForTimeDilation, void)
 {
     // In-game time is scaled and reported differently than wall time
-    // At Normal game speed: 1 day = 60 real life seconds, 60 seconds from Script_GetGameTime()
-    // At Fast game speed:   1 day = 20 real life seconds, 40 seconds from Script_GetGameTime()
-    // At Num1 debug speed:  1 day = 03 real life seconds, 05 seconds from Script_GetGameTime()
-    // At Num2 debug speed:  1 day = 01 real life seconds, ?? seconds from Script_GetGameTime()
-    //
-    // This code assumes the player maintained constant speed throughout the day.
-    // Any time within 80% of the time will be counted as the slower speed.
-
     Script_EnterCriticalSection();
     Script_GetGameTime(game_time); // Refresh game time upon entering the critical section
     game_time = game_time - day_started_time; // The scaled time reported by the game engine
@@ -639,7 +893,6 @@ defineFunction(CorrectForTimeDilation, void)
     // Fallback calculation
         if (game_speed > 2 & rub_sum2 ? 0.0 & usd_sum2 ? 0.0)
         {
-            // TODO: Refactor calculating 'difference' to a reusable function
             time_factor = -1.0;
             demand_total_vehicles = 0.0;
             if (VEHICLE_DIFFICULTY > 0.0)
@@ -656,7 +909,6 @@ defineFunction(CorrectForTimeDilation, void)
 
     if (time_factor > 0.0)
     {
-        // TODO: Cap total to 1.20x the original difference for the day
         rub_true_up = rub_sum2 * time_factor;
         usd_true_up = usd_sum2 * time_factor;
         BillAccounts(rub_true_up, usd_true_up);
@@ -708,12 +960,14 @@ defineFunction(Money, void, float:rub, float:usd)
         {   
             START_YEAR = year;
         }
-        //strcpy(text, START_YEAR);
-        //Window_ShowCharArray(text);
     }
-    //random_is_fire = game.FiresEnabled;
-    //strcpy(text, random_is_fire);
-    //Window_ShowCharArray(text);
+
+    // --- BUREAUCRACY MOD: INITIALIZE TAGS ---
+    strcpy(tag_under_construction, "uc");
+    strcpy(tag_rushed, "rushed_build");
+    strcpy(tag_clean, "clean_build");
+    strcpy(tag_empty, "");
+
     while (1 ? 1)
     {
         game.GetCurrentGameSettigns();
@@ -780,19 +1034,15 @@ defineFunction(Money, void, float:rub, float:usd)
                         difference = 0.0;
                     }
 
-                    // Use the cache to store the decimal values that would have been lost in the float to int truncation.
-                    // Note: The function 'ModuleInt' is used as a bodge to force a truncation without adding a variable.
-                    // It returns the absolute value, so the sign must be accounted for.
                     if (difference > 0.0)
                     {
-                        // TODO: Test this section
-                        supply_cache = supply_cache + difference - ModuleInt(difference);  // Add the fractional part to the supply cache
-                        difference = ModuleInt(difference);  // Keep only the integer part for further calculations
+                        supply_cache = supply_cache + difference - ModuleInt(difference);  
+                        difference = ModuleInt(difference); 
                     }
                     elseif (difference < 0.0)
                     {
-                        supply_cache = supply_cache + difference + ModuleInt(difference);  // Add the fractional part to the supply cache
-                        difference = 0.0 - ModuleInt(difference);  // Keep only the integer part for further calculations
+                        supply_cache = supply_cache + difference + ModuleInt(difference);  
+                        difference = 0.0 - ModuleInt(difference);  
                     }
 
                     if (supply_cache < 0.0)
@@ -802,6 +1052,12 @@ defineFunction(Money, void, float:rub, float:usd)
                     }
 
                     SendToMarket(difference);
+                }
+
+                // --- BUREAUCRACY MOD: REAL-TIME PERMIT CALCULATION FOR UI ---
+                if (BUREAUCRACY_ENABLED > 0)
+                {
+                    CalculatePermits(); 
                 }
 
                 // User Interface
@@ -817,6 +1073,14 @@ defineFunction(Money, void, float:rub, float:usd)
 
         // The while loop has broken, so the day has changed.
         CorrectForTimeDilation();
+
+        // --- BUREAUCRACY MOD: DAY ROLLOVER PENALTIES ---
+        if (BUREAUCRACY_ENABLED > 0)
+        {
+            Script_EnterCriticalSection();
+            ProcessPermitPenalties(); 
+            Script_LeaveCriticalSection();
+        }
 
         rub_sum = rub_sum2;
         usd_sum = usd_sum2;
