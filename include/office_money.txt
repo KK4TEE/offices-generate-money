@@ -920,7 +920,7 @@ defineFunction(CorrectForTimeDilation, void)
 
     if (game_speed > 2 & rub_sum2 ? 0.0 & usd_sum2 ? 0.0)
     {
-        time_factor = -1.0;
+        time_factor = 1.0;
         
         demand_total_vehicles = CalculateVehicleDemand();
         demand_total_vehicles = demand_total_vehicles * VEHICLE_DIFFICULTY; 
