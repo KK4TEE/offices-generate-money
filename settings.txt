@@ -157,14 +157,14 @@ defineFunction(InitSettings, void)
     PERMIT_CACHE_DAYS = 3.0;
 
     // Daily drain on health for citizens living/working in a permanently "rushed" building
-    PERMIT_PENALTY_HEALTH_DRAIN = 0.005; 
+    PERMIT_PENALTY_HEALTH_DRAIN = 0.001; 
     
     // Daily drain on happiness for citizens living/working in a permanently "rushed" building
-    PERMIT_PENALTY_HAPP_DRAIN = 0.005; 
+    PERMIT_PENALTY_HAPP_DRAIN = 0.001; 
     
     // Multiplier for the chance of a fire breaking out on an active site during an unmitigated deficit
     // 1.0 uses the default ratio (e.g., 50% deficit = up to 0.5% chance per tick)
-    PERMIT_FIRE_CHANCE_MULT = 1.0; 
+    PERMIT_FIRE_CHANCE_MULT = 0.5; 
 
     returnVoid();
 }
