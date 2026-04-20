@@ -127,6 +127,9 @@ defineVariable(float, permit_deficit_ratio);
 
 // UI Tracking Variables
 defineVariable(float, display_flex_demand);
+defineVariable(float, flex_to_civic);
+defineVariable(float, flex_to_permit);
+defineVariable(float, flex_surplus);
 defineVariable(float, temp_trade);
 
 defineVariable(int, count_active_sites);
@@ -256,6 +259,16 @@ defineFunction(CalculateSupply, float)
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
                     if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + HQ_FACTOR; }
+                }
+            }
+            if(building.nType ? BUILDINGTYPE_UNIVERSITY & building.nSubType ? BUILDINGSUBTYPE_TECHNICAL)
+            {
+                for (j=0, j<building.nWorkersNum, j=j+1)
+                {
+                    Building_Workers_GetID(i, j, worker_id);
+                    worker.GetDataByIndex(worker_id);
+                    if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + PERMIT_SUPPLY_TECH_PROF; }
+                    else() { bld_services = bld_services + PERMIT_SUPPLY_TECH_STAFF; }
                 }
             }
             if(building.nType ? BUILDINGTYPE_SECRET_POLICE & building.nVehiclesWorkingNum < 1)
@@ -420,15 +433,36 @@ defineFunction(CalculateSupplies, void)
     permit_total_demand = permit_passive_demand + permit_active_demand;
 
     display_flex_demand = 0.0;
+    flex_to_civic = 0.0;
+    flex_to_permit = 0.0;
+    flex_surplus = supply_flex;
     
     if (demand_total > supply_civic) 
     {
-        display_flex_demand = display_flex_demand + (demand_total - supply_civic);
+        flex_to_civic = demand_total - supply_civic;
+        display_flex_demand = display_flex_demand + flex_to_civic;
+        if (flex_surplus > flex_to_civic) 
+        {
+            flex_surplus = flex_surplus - flex_to_civic;
+        } 
+        else() 
+        {
+            flex_surplus = 0.0;
+        }
     }
     
     if (permit_total_demand > supply_permit) 
     {
-        display_flex_demand = display_flex_demand + (permit_total_demand - supply_permit);
+        flex_to_permit = permit_total_demand - supply_permit;
+        display_flex_demand = display_flex_demand + flex_to_permit;
+        if (flex_surplus > flex_to_permit) 
+        {
+            flex_surplus = flex_surplus - flex_to_permit;
+        } 
+        else() 
+        {
+            flex_surplus = 0.0;
+        }
     }
 
     returnVoid();
@@ -832,6 +866,7 @@ defineFunction(HandleStatisticsWindow,void)
                             strcat(text, NEWLINE);
                             strcat(text, "Priority 1: Civic Needs"); strcat(text, NEWLINE);
                             strcat(text, "  - Demand: "); strcat(text, demand_total); strcat(text, NEWLINE);
+                            if (flex_to_civic > 0.0) { strcat(text, "  -> Flex Supplement: "); strcat(text, flex_to_civic); strcat(text, NEWLINE); }
                             strcat(text, "  -> Civic Cache: "); strcat(text, civic_cache); strcat(text, " / "); strcat(text, civic_cache_capacity); strcat(text, NEWLINE);
                             if (unmitigated_civic > 0.0) { strcat(text, "  -> SHORTFALL (Importing): "); strcat(text, unmitigated_civic); strcat(text, NEWLINE); }
                             else() { strcat(text, "  -> Needs Met."); strcat(text, NEWLINE); }
@@ -839,6 +874,7 @@ defineFunction(HandleStatisticsWindow,void)
                             strcat(text, NEWLINE);
                             strcat(text, "Priority 2: Const. Permits"); strcat(text, NEWLINE);
                             strcat(text, "  - Demand: "); strcat(text, permit_total_demand); strcat(text, NEWLINE);
+                            if (flex_to_permit > 0.0) { strcat(text, "  -> Flex Supplement: "); strcat(text, flex_to_permit); strcat(text, NEWLINE); }
                             strcat(text, "  -> Permit Cache: "); strcat(text, permit_cache); strcat(text, " / "); strcat(text, permit_cache_capacity); strcat(text, NEWLINE);
                             
                             if (daily_unmitigated_permit_deficit > 0.0) { strcat(text, "  -> SYSTEM FAILURE: Cache Empty!"); strcat(text, NEWLINE); }
@@ -847,6 +883,7 @@ defineFunction(HandleStatisticsWindow,void)
 
                             strcat(text, NEWLINE);
                             strcat(text, "Priority 3: Market Export"); strcat(text, NEWLINE);
+                            strcat(text, "  - Unused Flex: "); strcat(text, flex_surplus); strcat(text, NEWLINE);
                             strcat(text, "  - Admin Market Trade: ");
                             if (market_trade < 0.0) { temp_trade = 0.0 - market_trade; strcat(text, "Importing "); strcat(text, temp_trade); } 
                             elseif (market_trade > 0.0) { strcat(text, "Exporting "); strcat(text, market_trade); } 
