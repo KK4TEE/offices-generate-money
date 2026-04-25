@@ -140,7 +140,7 @@ defineFunction(InitSettings, void)
     // Permits generated per Professor at a Technical University
     PERMIT_SUPPLY_TECH_PROF = 3.0; 
     
-    // Percentage efficiency boost to total admin pool per Secret Police worker (0.005 = 0.5% boost)
+    // Permits generated per generic worker in a Secret Police building
     PERMIT_SUPPLY_SECRET_POLICE = 1.5; 
     PERMIT_SUPPLY_REGULAR_POLICE = 1.0;
 

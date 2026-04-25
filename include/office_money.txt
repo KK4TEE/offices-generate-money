@@ -564,9 +564,9 @@ defineFunction(MakePeopleAngry, void, float:unpaid_services)
     for(i=0, i<population, i=i+1)
     {
         worker.GetDataByIndex(i);
-        Person_SetStatus(i, 0, MaxFloat(worker.fStatusHappiness - unpaid_services * UNHAPPINESS_FACTOR / 20.0, 0.0));
-        Person_SetStatus(i, 3, MaxFloat(worker.fStatusSoviet - unpaid_services * LOYALTY_FACTOR / 20.0, 0.0));
-        if(game.CrimeEnabled > 0) { Person_SetStatus(i, 10, MinFloat(worker.fStatusCrime + unpaid_services * CRIME_FACTOR / 20.0, 1.0)); }
+        Person_SetStatus(i, 0, MaxFloat(worker.fStatusHappiness - unpaid_services * UNHAPPINESS_FACTOR * time_factor, 0.0));
+        Person_SetStatus(i, 3, MaxFloat(worker.fStatusSoviet - unpaid_services * LOYALTY_FACTOR * time_factor, 0.0));
+        if(game.CrimeEnabled > 0) { Person_SetStatus(i, 10, MinFloat(worker.fStatusCrime + unpaid_services * CRIME_FACTOR * time_factor, 1.0)); }
     }
     if(FIRE_PROB_DENOMINATOR > 0 % game.FiresEnabled > 0) 
     {
