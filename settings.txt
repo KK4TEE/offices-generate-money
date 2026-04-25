@@ -142,15 +142,15 @@ defineFunction(InitSettings, void)
     
     // Percentage efficiency boost to total admin pool per Secret Police worker (0.005 = 0.5% boost)
     PERMIT_SUPPLY_SECRET_POLICE = 1.5; 
-	PERMIT_SUPPLY_REGULAR_POLICE = 1.0;
+    PERMIT_SUPPLY_REGULAR_POLICE = 1.0;
 
     // --- Demand Generation ---
     // Passive daily permit drain just for having a Construction Office or Rail Office built
-    PERMIT_DEMAND_OFFICE = 5.0; 
+    PERMIT_DEMAND_OFFICE = 1.0; 
     
     // Multiplier for active construction demand based on total max workers needed for the project
-    // Example: 0.1 means a building requiring 100 workers demands 10 permits daily.
-    PERMIT_DEMAND_ACTIVE_MULT = 0.1; 
+    // Example: 0.01 means a building requiring 100 workers demands 1 permits daily.
+    PERMIT_DEMAND_ACTIVE_MULT = 0.01; 
 
     // --- Buffer & Penalties ---
     // How many days of active construction demand the Permit Cache can hold to smooth out fluctuations
@@ -164,7 +164,7 @@ defineFunction(InitSettings, void)
     
     // Multiplier for the chance of a fire breaking out on an active site during an unmitigated deficit
     // 1.0 uses the default ratio (e.g., 50% deficit = up to 0.5% chance per tick)
-    PERMIT_FIRE_CHANCE_MULT = 0.5; 
+    PERMIT_FIRE_CHANCE_MULT = 0.05; 
 
     returnVoid();
 }

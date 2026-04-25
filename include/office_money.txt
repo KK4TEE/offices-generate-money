@@ -20,6 +20,7 @@ defineVariable(float, demand_vehicles);
 defineVariable(float, vehicle_cost);
 defineVariable(int, vehicles_in_depot);
 defineVariable(int, vehicles_num_trucks);
+defineVariable(int, vehicles_num_horses);
 defineVariable(int, vehicles_num_trains);
 defineVariable(int, vehicles_num_ships);
 defineVariable(int, vehicles_num_airplanes);
@@ -49,8 +50,8 @@ defineVariable(int, window_id);
 defineVariable(int, window_exists);
 defineVariable(Window, window);
 defineVariable(int, clicked_object_id);
-
 defineArray(char[2048], text);
+defineArray(char[256], temp_string_buf);
 defineVariable(char, NEWLINE);
 defineVariable(int, debug_workplace_id);
 
@@ -151,6 +152,7 @@ defineFunction(CalculateVehicleDemand, float)
     Vehicle_GetNumberOfVehicles(m);
     vehicles_in_depot = 0;
     vehicles_num_trucks = 0;
+    vehicles_num_horses = 0;
     vehicles_num_trains = 0;
     vehicles_num_ships = 0;
     vehicles_num_airplanes = 0;
@@ -160,48 +162,63 @@ defineFunction(CalculateVehicleDemand, float)
     {
         vehicle.GetDataByIndex(i);
         vehicle_cost = 0.0;
-        if(vehicle.nTransportType ? RESOURCE_TRANSPORT_PASSANGER)
+        
+        if(
+            vehicle.nVehicleType ? VEHICLETYPE_CABIN |
+            (vehicle.nVehicleType ? VEHICLETYPE_ROAD & vehicle.fType_EnginePower < 8.5) |
+            vehicle.bBrandNew ? 1)
         {
-            vehicle_cost = vehicle.fResourceCapacity / 10.0;
+            // Do not add cost for cable cars, horse drawn vehicles, or brand new vehicles in storage/transit
+            if (vehicle.nVehicleType ? VEHICLETYPE_ROAD & vehicle.fType_EnginePower < 8.5)
+            {
+                vehicles_num_horses = vehicles_num_horses + 1;
+            }
         }
-        elseif(vehicle.nTransportType > -1 & vehicle.nTransportType < RESOURCE_TRANSPORT_NUM)
+        else()
         {
-            vehicle_cost = vehicle.fResourceCapacity;
-        }
+            if(vehicle.nTransportType ? RESOURCE_TRANSPORT_PASSANGER)
+            {
+                vehicle_cost = vehicle.fResourceCapacity / 10.0;
+            }
+            elseif(vehicle.nTransportType > -1 & vehicle.nTransportType < RESOURCE_TRANSPORT_NUM)
+            {
+                vehicle_cost = vehicle.fResourceCapacity;
+            }
 
-        if (vehicle.nVehicleType > 0 & vehicle.nVehicleType < 3)
-        {
-            vehicles_num_trucks = vehicles_num_trucks + 1;
-            if(vehicle.nSkill[0] ? VEHICLESKILL_SEEDING) { vehicle_cost = BASE_COST_SEEDING; }
-            elseif(vehicle.nSkill[0] ? VEHICLESKILL_HARVESTING) { vehicle_cost = BASE_COST_HARVESTING; }
-            elseif(vehicle.nSkill[0] ? VEHICLESKILL_SNOWPLOW) { vehicle_cost = BASE_COST_SNOWPLOWING; }
-            elseif(vehicle.nSkill[0] ? VEHICLESKILL_PERSONAL) { vehicle_cost = BASE_COST_PERSONAL; }
-            else() { vehicle_cost = BASE_COST_ROAD + vehicle_cost * COST_ROAD_FACTOR; }
-        }
-        elseif(vehicle.nVehicleType < 6)
-        {
-            vehicles_num_trains = vehicles_num_trains + 1;
-            vehicle_cost = BASE_COST_RAIL + COST_RAIL_FACTOR * vehicle_cost;
-        }
-        elseif(vehicle.nVehicleType ? VEHICLETYPE_SHIP)
-        {
-            vehicles_num_ships = vehicles_num_ships + 1;
-            vehicle_cost = vehicle_cost + BASE_COST_SHIP + COST_SHIP_FACTOR * vehicle_cost;
-        }
-        elseif(vehicle.nVehicleType ? VEHICLETYPE_AIRPLANE | vehicle.nVehicleType ? VEHICLETYPE_HELICOPTER)
-        {
-            vehicles_num_airplanes = vehicles_num_airplanes + 1; 
-            vehicle_cost = vehicle_cost + BASE_COST_AIR + COST_AIR_FACTOR * vehicle_cost;
-        }
+            if (vehicle.nVehicleType > 0 & vehicle.nVehicleType < 3)
+            {
+                vehicles_num_trucks = vehicles_num_trucks + 1;
+                if(vehicle.nSkill[0] ? VEHICLESKILL_SEEDING) { vehicle_cost = BASE_COST_SEEDING; }
+                elseif(vehicle.nSkill[0] ? VEHICLESKILL_HARVESTING) { vehicle_cost = BASE_COST_HARVESTING; }
+                elseif(vehicle.nSkill[0] ? VEHICLESKILL_SNOWPLOW) { vehicle_cost = BASE_COST_SNOWPLOWING; }
+                elseif(vehicle.nSkill[0] ? VEHICLESKILL_PERSONAL) { vehicle_cost = BASE_COST_PERSONAL; }
+                else() { vehicle_cost = BASE_COST_ROAD + vehicle_cost * COST_ROAD_FACTOR; }
+            }
+            elseif(vehicle.nVehicleType < 6)
+            {
+                vehicles_num_trains = vehicles_num_trains + 1;
+                vehicle_cost = BASE_COST_RAIL + COST_RAIL_FACTOR * vehicle_cost;
+            }
+            elseif(vehicle.nVehicleType ? VEHICLETYPE_SHIP)
+            {
+                vehicles_num_ships = vehicles_num_ships + 1;
+                vehicle_cost = vehicle_cost + BASE_COST_SHIP + COST_SHIP_FACTOR * vehicle_cost;
+            }
+            elseif(vehicle.nVehicleType ? VEHICLETYPE_AIRPLANE | vehicle.nVehicleType ? VEHICLETYPE_HELICOPTER)
+            {
+                vehicles_num_airplanes = vehicles_num_airplanes + 1; 
+                vehicle_cost = vehicle_cost + BASE_COST_AIR + COST_AIR_FACTOR * vehicle_cost;
+            }
 
-        if(vehicle.nBuilding_CurrentID ? vehicle.nBuilding_HomeWorkplaceID & vehicle.nBuilding_CurrentID > 0)
-        {
-            debug_workplace_id = vehicle.nBuilding_HomeWorkplaceID;
-            vehicle_cost = vehicle_cost * VEHICLE_IDLE_COST;
-            vehicles_in_depot = vehicles_in_depot + 1;
-        }
+            if(vehicle.nBuilding_CurrentID ? vehicle.nBuilding_HomeWorkplaceID & vehicle.nBuilding_CurrentID > 0)
+            {
+                debug_workplace_id = vehicle.nBuilding_HomeWorkplaceID;
+                vehicle_cost = vehicle_cost * VEHICLE_IDLE_COST;
+                vehicles_in_depot = vehicles_in_depot + 1;
+            }
 
-        demand_vehicles = demand_vehicles + vehicle_cost;
+            demand_vehicles = demand_vehicles + vehicle_cost;
+        }
     }
     return(demand_vehicles);
 }
@@ -928,11 +945,28 @@ defineFunction(HandleStatisticsWindow,void)
                             strcat(text, "Market Spend (Rub):"); strcat(text, money_rub_add); strcat(text, NEWLINE);
                             strcat(text, "Number of Vehicles:"); strcat(text, m); strcat(text, NEWLINE);
                             strcat(text, "Trucks:"); strcat(text, vehicles_num_trucks); strcat(text, NEWLINE);
+                            strcat(text, "Horses:"); strcat(text, vehicles_num_horses); strcat(text, NEWLINE);
                             strcat(text, "Trains:"); strcat(text, vehicles_num_trains); strcat(text, NEWLINE);
                             strcat(text, "Ships:"); strcat(text, vehicles_num_ships); strcat(text, NEWLINE);
                             strcat(text, "Airplanes:"); strcat(text, vehicles_num_airplanes); strcat(text, NEWLINE);
                             strcat(text, "Vehicles in depot:"); strcat(text, vehicles_in_depot); strcat(text, NEWLINE);
                             strcat(text, "WP ID:"); strcat(text, debug_workplace_id); strcat(text, NEWLINE);
+                            if (m > 5)
+                            {
+                                vehicle.GetDataByIndex(5);
+                                strcat(text, "--- VH 6 STATS ---"); strcat(text, NEWLINE);
+                                strcpy(temp_string_buf, vehicle.sIdent);
+                                strcat(text, "sIdent:"); strcat(text, temp_string_buf); strcat(text, NEWLINE);
+                                j = vehicle.nVehicleType; strcat(text, "nVehicleType:"); strcat(text, j); strcat(text, NEWLINE);
+                                j = vehicle.nTransportType; strcat(text, "nTransType:"); strcat(text, j); strcat(text, NEWLINE);
+                                j = vehicle.nWorkers; strcat(text, "nWorkers:"); strcat(text, j); strcat(text, NEWLINE);
+                                j = vehicle.nTrain_VagonsNum; strcat(text, "nVagonsNum:"); strcat(text, j); strcat(text, NEWLINE);
+                                value = vehicle.fType_EnginePower; strcat(text, "EngPower:"); strcat(text, value); strcat(text, NEWLINE);
+                                j = vehicle.bFuel_NoFuel; strcat(text, "NoFuel:"); strcat(text, j); strcat(text, NEWLINE);
+                                j = vehicle.bType_MovementElectric; strcat(text, "Elec:"); strcat(text, j); strcat(text, NEWLINE);
+                                j = vehicle.nCarry_OtherVehiclesNum; strcat(text, "nCarryOther:"); strcat(text, j); strcat(text, NEWLINE);
+                                value = vehicle.fType_FuelCapacity; strcat(text, "FuelCap:"); strcat(text, value); strcat(text, NEWLINE);
+                            }
                         }
 
                         Scenario_WindowWithImageLeft("City Administration", text, "services_icon.png", 2);
