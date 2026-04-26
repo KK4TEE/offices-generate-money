@@ -264,8 +264,8 @@ defineFunction(CalculateSupply, float)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PRIMARY_ED_FACTOR;
-                    if (worker.fEducation>1.999) { service_scale = UNIVERSITY_ED_FACTOR; }
+                    service_scale = CIVIC_SUPPLY_BASE_WORKER;
+                    if (worker.fEducation>1.999) { service_scale = CIVIC_SUPPLY_BASE_UNIVERSITY; }
                     bld_services = bld_services + service_scale;
                 }
             }
@@ -275,7 +275,13 @@ defineFunction(CalculateSupply, float)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + HQ_FACTOR; }
+                    if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + CIVIC_SUPPLY_PARTY_HQ; }
+                    else() 
+                    { 
+                        service_scale = CIVIC_SUPPLY_PARTY_HQ * 0.5;
+                        if (worker.fEducation>1.999) { service_scale = service_scale * UNIVERSITY_DEGREE_MULTIPLIER; }
+                        bld_services = bld_services + service_scale; 
+                    } 
                 }
             }
             if(building.nType ? BUILDINGTYPE_UNIVERSITY & building.nSubType ? BUILDINGSUBTYPE_TECHNICAL)
@@ -285,7 +291,12 @@ defineFunction(CalculateSupply, float)
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
                     if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + PERMIT_SUPPLY_TECH_PROF; }
-                    else() { bld_services = bld_services + PERMIT_SUPPLY_TECH_STAFF; }
+                    else() 
+                    { 
+                        service_scale = PERMIT_SUPPLY_TECH_STAFF;
+                        if (worker.fEducation>1.999) { service_scale = service_scale * UNIVERSITY_DEGREE_MULTIPLIER; }
+                        bld_services = bld_services + service_scale; 
+                    }
                 }
             }
             if(building.nType ? BUILDINGTYPE_SECRET_POLICE & building.nVehiclesWorkingNum < 1)
@@ -294,9 +305,7 @@ defineFunction(CalculateSupply, float)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PRIMARY_ED_FACTOR;
-                    if (worker.fEducation>1.999) { service_scale = UNIVERSITY_ED_FACTOR; }
-                    bld_services = bld_services + service_scale;
+                    bld_services = bld_services + CIVIC_SUPPLY_BASE_UNIVERSITY;
                 }
             }
             if (VEHICLE_DIFFICULTY > 0.0 & building.nType ? BUILDINGTYPE_AIRPLANE_TOWER)
@@ -305,9 +314,7 @@ defineFunction(CalculateSupply, float)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PRIMARY_ED_FACTOR;
-                    if (worker.fEducation>1.999) { service_scale = UNIVERSITY_ED_FACTOR; }
-                    bld_services = bld_services + service_scale;
+                    bld_services = bld_services + CIVIC_SUPPLY_BASE_UNIVERSITY;
                 }
             }
         }
@@ -350,8 +357,8 @@ defineFunction(CalculateSupplies, void)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PERMIT_SUPPLY_CITYHALL;
-                    if (worker.fEducation>1.999) { service_scale = PERMIT_SUPPLY_CITYHALL * 1.5; }
+                    service_scale = FLEX_SUPPLY_CITYHALL;
+                    if (worker.fEducation>1.999) { service_scale = service_scale * UNIVERSITY_DEGREE_MULTIPLIER; }
                     bld_services = bld_services + service_scale;
                 }
                 if(building.fEletric_Voltage < 0.9 & game.EletricityLevel > 0) { bld_services = bld_services * NO_POWER_FACTOR; }
@@ -365,8 +372,13 @@ defineFunction(CalculateSupplies, void)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + HQ_FACTOR; }
-                    else() { bld_services = bld_services + (HQ_FACTOR * 0.5); } 
+                    if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + CIVIC_SUPPLY_PARTY_HQ; }
+                    else() 
+                    { 
+                        service_scale = CIVIC_SUPPLY_PARTY_HQ * 0.5;
+                        if (worker.fEducation>1.999) { service_scale = service_scale * UNIVERSITY_DEGREE_MULTIPLIER; }
+                        bld_services = bld_services + service_scale; 
+                    } 
                 }
                 if(building.fEletric_Voltage < 0.9 & game.EletricityLevel > 0) { bld_services = bld_services * NO_POWER_FACTOR; }
                 if(building.fWater_CurrentDrinkAmount < 0.001 & game.WaterManagement > 0) { bld_services = bld_services * NO_WATER_FACTOR; }
@@ -379,9 +391,7 @@ defineFunction(CalculateSupplies, void)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PERMIT_SUPPLY_SECRET_POLICE;
-                    if (worker.fEducation>1.999) { service_scale = PERMIT_SUPPLY_SECRET_POLICE * 1.5; }
-                    bld_services = bld_services + service_scale;
+                    bld_services = bld_services + CIVIC_SUPPLY_SECRET_POLICE;
                 }
                 if(building.fEletric_Voltage < 0.9 & game.EletricityLevel > 0) { bld_services = bld_services * NO_POWER_FACTOR; }
                 if(building.fWater_CurrentDrinkAmount < 0.001 & game.WaterManagement > 0) { bld_services = bld_services * NO_WATER_FACTOR; }
@@ -394,9 +404,7 @@ defineFunction(CalculateSupplies, void)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PRIMARY_ED_FACTOR;
-                    if (worker.fEducation>1.999) { service_scale = UNIVERSITY_ED_FACTOR; }
-                    bld_services = bld_services + service_scale;
+                    bld_services = bld_services + CIVIC_SUPPLY_BASE_UNIVERSITY;
                 }
                 if(building.fEletric_Voltage < 0.9 & game.EletricityLevel > 0) { bld_services = bld_services * NO_POWER_FACTOR; }
                 if(building.fWater_CurrentDrinkAmount < 0.001 & game.WaterManagement > 0) { bld_services = bld_services * NO_WATER_FACTOR; }
@@ -409,7 +417,12 @@ defineFunction(CalculateSupplies, void)
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
                     if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + PERMIT_SUPPLY_TECH_PROF; }
-                    else() { bld_services = bld_services + PERMIT_SUPPLY_TECH_STAFF; }
+                    else() 
+                    { 
+                        service_scale = PERMIT_SUPPLY_TECH_STAFF;
+                        if (worker.fEducation>1.999) { service_scale = service_scale * UNIVERSITY_DEGREE_MULTIPLIER; }
+                        bld_services = bld_services + service_scale; 
+                    }
                 }
                 if(building.fEletric_Voltage < 0.9 & game.EletricityLevel > 0) { bld_services = bld_services * NO_POWER_FACTOR; }
                 if(building.fWater_CurrentDrinkAmount < 0.001 & game.WaterManagement > 0) { bld_services = bld_services * NO_WATER_FACTOR; }
@@ -422,9 +435,13 @@ defineFunction(CalculateSupplies, void)
                 {
                     Building_Workers_GetID(i, j, worker_id);
                     worker.GetDataByIndex(worker_id);
-                    service_scale = PERMIT_SUPPLY_REGULAR_POLICE;
-                    if (worker.fEducation>1.999) { service_scale = PERMIT_SUPPLY_REGULAR_POLICE * 1.5; }
-                    bld_services = bld_services + service_scale;
+                    if (worker.bWorkplaceAsProfesor ? 1) { bld_services = bld_services + PERMIT_SUPPLY_POLICE_DETECTIVE; }
+                    else() 
+                    {
+                        service_scale = PERMIT_SUPPLY_POLICE_OFFICER;
+                        if (worker.fEducation>1.999) { service_scale = service_scale * UNIVERSITY_DEGREE_MULTIPLIER; }
+                        bld_services = bld_services + service_scale;
+                    }
                 }
                 if(building.fEletric_Voltage < 0.9 & game.EletricityLevel > 0) { bld_services = bld_services * NO_POWER_FACTOR; }
                 if(building.fWater_CurrentDrinkAmount < 0.001 & game.WaterManagement > 0) { bld_services = bld_services * NO_WATER_FACTOR; }
@@ -1026,8 +1043,8 @@ defineFunction(Money, void, float:rub, float:usd)
     PRICE_SELL_RUB = MaxFloat(PRICE_SELL_RUB, 0.0);
     PRICE_SELL_USD = MaxFloat(PRICE_SELL_USD, 0.0);
     FOREIGN_SUPPLY_DEMAND_FACTOR = MaxFloat(FOREIGN_SUPPLY_DEMAND_FACTOR, 0.0);
-    PRIMARY_ED_FACTOR = MaxFloat(PRIMARY_ED_FACTOR, 0.0);
-    UNIVERSITY_ED_FACTOR = MaxFloat(UNIVERSITY_ED_FACTOR, 0.0);
+    CIVIC_SUPPLY_BASE_WORKER = MaxFloat(CIVIC_SUPPLY_BASE_WORKER, 0.0);
+    CIVIC_SUPPLY_BASE_UNIVERSITY = MaxFloat(CIVIC_SUPPLY_BASE_UNIVERSITY, 0.0);
     
     year = START_YEAR;
     rub_sum = 0.0;
