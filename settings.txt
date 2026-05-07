@@ -29,6 +29,7 @@ defineVariable(float, BASE_COST_ROAD);
 defineVariable(float, BASE_COST_RAIL);
 defineVariable(float, BASE_COST_SHIP);
 defineVariable(float, BASE_COST_AIR);
+defineVariable(float, BASE_COST_HORSE);
 defineVariable(float, BASE_COST_SEEDING);
 defineVariable(float, BASE_COST_HARVESTING);
 defineVariable(float, BASE_COST_SNOWPLOWING);
@@ -114,6 +115,7 @@ defineFunction(InitSettings, void)
     BASE_COST_RAIL = 2.0;
     BASE_COST_SHIP = 10.0;
     BASE_COST_AIR = 4.0;
+    BASE_COST_HORSE = 0.25;
     
     BASE_COST_SEEDING = 1.25;
     BASE_COST_HARVESTING = 1.25;

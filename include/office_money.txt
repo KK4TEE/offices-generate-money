@@ -168,10 +168,22 @@ defineFunction(CalculateVehicleDemand, float)
             (vehicle.nVehicleType ? VEHICLETYPE_ROAD & vehicle.fType_EnginePower < 8.5) |
             vehicle.bBrandNew ? 1)
         {
-            // Do not add cost for cable cars, horse drawn vehicles, or brand new vehicles in storage/transit
+            // Do not add cost for cable cars or brand new vehicles in storage/transit.
+            // Horse drawn vehicles have a lower cost for gameplay reasons, even though it bends realism.
             if (vehicle.nVehicleType ? VEHICLETYPE_ROAD & vehicle.fType_EnginePower < 8.5)
             {
                 vehicles_num_horses = vehicles_num_horses + 1;
+                if (!(vehicle.bBrandNew ? 1))
+                {
+                    vehicle_cost = BASE_COST_HORSE;
+                    if(vehicle.nBuilding_CurrentID ? vehicle.nBuilding_HomeWorkplaceID & vehicle.nBuilding_CurrentID > 0)
+                    {
+                        debug_workplace_id = vehicle.nBuilding_HomeWorkplaceID;
+                        vehicle_cost = vehicle_cost * VEHICLE_IDLE_COST;
+                        vehicles_in_depot = vehicles_in_depot + 1;
+                    }
+                    demand_vehicles = demand_vehicles + vehicle_cost;
+                }
             }
         }
         else()
